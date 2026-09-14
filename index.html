@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BC카드 상권분석 대시보드</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>BC카드 상권분석 대시보드</h1>
+    <div class="controls">
+      <select id="sidoSelect"></select>
+      <select id="bizSelect"></select>
+    </div>
+  </header>
+
+  <main>
+    <div id="mapPanel">
+      <div id="map"></div>
+      <div class="map-hint">지도를 클릭하면 오른쪽에 상세 분석이 표시됩니다. 색이 진할수록 선택 업종 매출이 큰 지역입니다.</div>
+    </div>
+
+    <div id="analysisPanel">
+      <div class="panel-card">
+        <div class="panel-header">
+          <span class="badge">A</span>
+          <h2>지역 수요</h2>
+          <span class="context-tag" id="contextTag">BC카드 결제 · 2026년 1~6월</span>
+        </div>
+
+        <div id="emptyState" class="empty-state">지도를 클릭해서 지역을 선택하세요.</div>
+
+        <div id="statsBody" style="display:none;">
+          <div class="stat-row">
+            <div class="stat-box">
+              <div class="stat-value" id="statAmt">—</div>
+              <div class="stat-label">6개월 결제액</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="statCnt">—</div>
+              <div class="stat-label">결제 건수</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="statPrice">—</div>
+              <div class="stat-label">건당 금액</div>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-box">
+              <div class="stat-value" id="statRank">—</div>
+              <div class="stat-label">전국 업종 결제액 순위</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="statGrowth">—</div>
+              <div class="stat-label">기간 내 첫달→마지막달</div>
+            </div>
+          </div>
+
+          <h3>월별 결제액</h3>
+          <svg id="monthlyChart" viewBox="0 0 560 180"></svg>
+
+          <h3>결제액 상위 시군구</h3>
+          <table id="topGuTable">
+            <thead><tr><th>시군구</th><th>결제액</th><th>비중</th></tr></thead>
+            <tbody></tbody>
+          </table>
+
+          <div id="lowSampleWarn" class="warn-box" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
