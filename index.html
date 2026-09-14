@@ -13,13 +13,17 @@
     <div class="controls">
       <select id="sidoSelect"></select>
       <select id="bizSelect"></select>
+      <input type="text" id="itemInput" placeholder="관심 아이템 (선택, 예: 삼계탕)">
     </div>
   </header>
 
   <main>
     <div id="mapPanel">
       <div id="map"></div>
-      <div class="map-hint">지도를 클릭하면 오른쪽에 상세 분석이 표시됩니다. 색이 진할수록 선택 업종 매출이 큰 지역입니다.</div>
+      <div class="map-footer">
+        <div class="legend" id="legend"></div>
+        <div class="map-hint">색이 진할수록 선택 업종 매출이 큰 지역입니다. 지역을 클릭하면 오른쪽에 상세 분석이 표시됩니다.</div>
+      </div>
     </div>
 
     <div id="analysisPanel">
@@ -29,6 +33,8 @@
           <h2>지역 수요</h2>
           <span class="context-tag" id="contextTag">BC카드 결제 · 2026년 1~6월</span>
         </div>
+
+        <div id="itemNote" class="item-note" style="display:none;"></div>
 
         <div id="emptyState" class="empty-state">지도를 클릭해서 지역을 선택하세요.</div>
 

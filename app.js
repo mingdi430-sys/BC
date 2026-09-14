@@ -8,6 +8,14 @@ const SIDO_PREFIX = {
   '전북특별자치도':'35','전라남도':'36','경상북도':'37','경상남도':'38',
   '제주특별자치도':'39'
 };
+const PREFIX_TO_SIDO = Object.fromEntries(Object.entries(SIDO_PREFIX).map(([k,v])=>[v,k]));
+const SIDO_SHORT = {
+  '서울특별시':'서울','부산광역시':'부산','대구광역시':'대구','인천광역시':'인천',
+  '광주광역시':'광주','대전광역시':'대전','울산광역시':'울산','세종특별자치시':'세종',
+  '경기도':'경기','강원특별자치도':'강원','충청북도':'충북','충청남도':'충남',
+  '전북특별자치도':'전북','전라남도':'전남','경상북도':'경북','경상남도':'경남',
+  '제주특별자치도':'제주'
+};
 // 2013년 기준 GeoJSON과 현재 행정구역명이 다른 경우 보정
 const ALIASES = {
   '29|세종특별자치시': '29|세종시',
@@ -15,21 +23,29 @@ const ALIASES = {
   '22|군위군': '37|군위군'
 };
 
-let REGION_DATA = null;   // { months: [...], data: { 시도: { 구: {업종: {...}} } } }
+let REGION_DATA = null;
 let GEO_MUNI = null;
 let GEO_PROV = null;
 let map = null;
 let geoLayer = null;
-let geoIndex = {};        // "prefix|name" -> geojson feature
-// geoFeatureKey -> [rawGuName, ...]  (한 폴리곤에 여러 원본 구가 매칭되는 경우, 예: 화성시)
-let featureToRaw = {};
+let labelLayer = null;
+let geoIndex = {};       // "prefix|name" -> geojson feature (시군구)
+let featureToRaw = {};   // geoKey -> [원본 구 이름들]
+let currentLevel = 'country'; // 'country' | 'sido'
 
-const fmtWon = v => {
+// ===== 숫자 포맷 =====
+// 큰 합계(결제액 총액류) - 억원 단위, 소수1자리
+const fmtEok = v => {
   if (v === null || v === undefined) return '—';
-  if (v >= 1e8) return (v/1e8).toFixed(1).replace(/\.0$/,'') + '억원';
+  if (v >= 1e8) {
+    const eok = v/1e8;
+    return eok.toLocaleString('ko-KR', {maximumFractionDigits:1, minimumFractionDigits: eok<10?1:0}) + '억원';
+  }
   if (v >= 1e4) return Math.round(v/1e4).toLocaleString() + '만원';
-  return v.toLocaleString() + '원';
+  return Math.round(v).toLocaleString() + '원';
 };
+// 정확한 원 단위(객단가 등 정밀도가 중요한 값)
+const fmtWonExact = v => v === null || v === undefined ? '—' : Math.round(v).toLocaleString() + '원';
 const fmtCnt = v => v === null || v === undefined ? '—' : v.toLocaleString() + '건';
 
 // ===== 데이터 로드 =====
@@ -45,22 +61,23 @@ async function loadAll() {
 
   GEO_MUNI.features.forEach(f => {
     const prefix = f.properties.code.slice(0,2);
-    const key = prefix + '|' + f.properties.name;
-    geoIndex[key] = f;
+    geoIndex[prefix + '|' + f.properties.name] = f;
   });
 
   initControls();
   initMap();
-  onSidoOrBizChange();
+  renderCountryView();
 }
 
 function initControls() {
   const sidoSelect = document.getElementById('sidoSelect');
+  const optAll = document.createElement('option'); optAll.value=''; optAll.textContent='전국 (전체보기)';
+  sidoSelect.appendChild(optAll);
   Object.keys(REGION_DATA.data).forEach(sido => {
     const o = document.createElement('option'); o.value = sido; o.textContent = sido;
     sidoSelect.appendChild(o);
   });
-  sidoSelect.value = '서울특별시';
+  sidoSelect.value = '';
 
   const bizSelect = document.getElementById('bizSelect');
   BIZ_LIST.forEach(b => {
@@ -69,18 +86,36 @@ function initControls() {
   });
   bizSelect.value = '서양음식';
 
-  sidoSelect.addEventListener('change', onSidoOrBizChange);
-  bizSelect.addEventListener('change', onSidoOrBizChange);
+  sidoSelect.addEventListener('change', () => {
+    if (sidoSelect.value === '') renderCountryView();
+    else renderSidoView(sidoSelect.value);
+  });
+  bizSelect.addEventListener('change', () => {
+    if (sidoSelect.value === '') renderCountryView(); else renderSidoView(sidoSelect.value);
+  });
+  document.getElementById('itemInput').addEventListener('input', renderItemNote);
+  renderItemNote();
+}
+
+function renderItemNote() {
+  const val = document.getElementById('itemInput').value.trim();
+  const el = document.getElementById('itemNote');
+  if (!val) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.textContent = `관심 아이템: "${val}" — 이 화면은 표시만 하며, 유행 판정(반감기 규칙)은 아직 이 대시보드에 연동되지 않았습니다.`;
 }
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, attributionControl: false }).setView([36.2, 127.8], 7);
+  map = L.map('map', { zoomControl: true, attributionControl: false, scrollWheelZoom: true })
+    .setView([36.2, 127.8], 6.7);
 }
 
-// 구 이름(공백포함, 예: "고양시 덕양구") -> GeoJSON용 공백없는 이름
+function clearLayers() {
+  if (geoLayer) { map.removeLayer(geoLayer); geoLayer = null; }
+}
+
 function toNoSpace(name){ return name.replace(/\s+/g, ''); }
 
-// 시도+구 이름으로 geoIndex에서 폴리곤 찾기 (직접매칭 실패 시 상위 도시명으로 폴백)
 function resolveFeature(sido, gu) {
   const prefix = SIDO_PREFIX[sido];
   const ns = toNoSpace(gu);
@@ -96,15 +131,89 @@ function resolveFeature(sido, gu) {
   return null;
 }
 
-// ===== 지도 렌더링 =====
-function onSidoOrBizChange() {
-  const sido = document.getElementById('sidoSelect').value;
+// ===== 색상 스케일 (흰 배경에서 구별 잘 되는 블루 시퀀셜) =====
+function colorScale(t) {
+  const stops = ['#E7EEFC', '#B9CDF3', '#7FA2E8', '#3F6DD1', '#1B3E85'];
+  const n = stops.length;
+  const idx = Math.min(n-2, Math.floor(t*(n-1)));
+  const localT = t*(n-1) - idx;
+  const c0 = hexToRgb(stops[idx]), c1 = hexToRgb(stops[idx+1]);
+  const rgb = c0.map((v,i) => Math.round(v + (c1[i]-v)*localT));
+  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+function hexToRgb(hex){
+  const v = hex.replace('#','');
+  return [parseInt(v.slice(0,2),16), parseInt(v.slice(2,4),16), parseInt(v.slice(4,6),16)];
+}
+
+function renderLegend(maxAmt) {
+  const legend = document.getElementById('legend');
+  const stops = ['#E7EEFC', '#B9CDF3', '#7FA2E8', '#3F6DD1', '#1B3E85'];
+  legend.innerHTML = '<span>0</span>' + stops.map(c=>`<span class="swatch" style="background:${c};"></span>`).join('') + `<span>${fmtEok(maxAmt)}</span>`;
+}
+
+function addLabel(layerGroup, latlng, text) {
+  const marker = L.marker(latlng, {
+    icon: L.divIcon({ className: 'region-label', html: text, iconSize: [0,0] }),
+    interactive: false
+  });
+  layerGroup.addLayer(marker);
+}
+
+// ===== 전국 뷰 (시도 단위) =====
+function renderCountryView() {
+  currentLevel = 'country';
+  const biz = document.getElementById('bizSelect').value;
+  clearLayers();
+
+  const sidoAmt = {};
+  Object.entries(REGION_DATA.data).forEach(([sido, guMap]) => {
+    let sum = 0;
+    Object.values(guMap).forEach(bizMap => { const b = bizMap[biz]; if (b) sum += b.amt6; });
+    sidoAmt[sido] = sum;
+  });
+  const maxAmt = Math.max(1, ...Object.values(sidoAmt));
+
+  const labelGroup = L.layerGroup();
+  geoLayer = L.geoJSON(GEO_PROV, {
+    style: (feature) => {
+      const sido = PREFIX_TO_SIDO[feature.properties.code];
+      const amt = sidoAmt[sido] || 0;
+      return { fillColor: colorScale(amt/maxAmt), color:'#FFFFFF', weight:1.4, fillOpacity:0.92 };
+    },
+    onEachFeature: (feature, layer) => {
+      const sido = PREFIX_TO_SIDO[feature.properties.code];
+      if (!sido) return;
+      const center = layer.getBounds().getCenter();
+      // 서울은 면적이 작아 경기 라벨과 겹치므로 살짝 위로 띄움
+      const labelPos = sido === '서울특별시' ? L.latLng(center.lat + 0.28, center.lng - 0.15) : center;
+      addLabel(labelGroup, labelPos, SIDO_SHORT[sido] || sido);
+      layer.on('click', () => {
+        document.getElementById('sidoSelect').value = sido;
+        renderSidoView(sido);
+      });
+      layer.on('mouseover', () => layer.setStyle({ weight:2.6 }));
+      layer.on('mouseout', () => layer.setStyle({ weight:1.4 }));
+      layer.bindTooltip(sido, { sticky:true });
+    }
+  }).addTo(map);
+  labelGroup.addTo(map);
+  geoLayer._labelGroup = labelGroup;
+
+  map.setView([36.2, 127.8], 6.7);
+  document.getElementById('contextTag').textContent = `BC카드 결제 · 전국 · ${biz.trim()}`;
+  renderLegend(maxAmt);
+}
+
+// ===== 시도 뷰 (시군구 단위) =====
+function renderSidoView(sido) {
+  currentLevel = 'sido';
   const biz = document.getElementById('bizSelect').value;
   const guData = REGION_DATA.data[sido];
+  clearLayers();
 
   featureToRaw = {};
-  const featureAmt = {}; // geoKey -> 합산 amt6 (병합 폴리곤 대비)
-
+  const featureAmt = {};
   Object.keys(guData).forEach(gu => {
     const resolved = resolveFeature(sido, gu);
     if (!resolved) return;
@@ -114,61 +223,52 @@ function onSidoOrBizChange() {
     featureToRaw[resolved.key].push(gu);
     featureAmt[resolved.key] = (featureAmt[resolved.key] || 0) + amt;
   });
-
   const maxAmt = Math.max(1, ...Object.values(featureAmt));
 
-  if (geoLayer) map.removeLayer(geoLayer);
-
   const features = Object.keys(featureToRaw).map(k => geoIndex[k]);
+  const labelGroup = L.layerGroup();
+
   geoLayer = L.geoJSON(features, {
     style: (feature) => {
-      const prefix = feature.properties.code.slice(0,2);
-      const key = prefix + '|' + feature.properties.name;
+      const key = feature.properties.code.slice(0,2) + '|' + feature.properties.name;
       const amt = featureAmt[key] || 0;
-      const intensity = amt / maxAmt;
-      return {
-        fillColor: colorScale(intensity),
-        color: '#0E1420',
-        weight: 1,
-        fillOpacity: 0.85
-      };
+      return { fillColor: colorScale(amt/maxAmt), color:'#FFFFFF', weight:1.4, fillOpacity:0.92 };
     },
     onEachFeature: (feature, layer) => {
-      const prefix = feature.properties.code.slice(0,2);
-      const key = prefix + '|' + feature.properties.name;
+      const key = feature.properties.code.slice(0,2) + '|' + feature.properties.name;
       const rawGus = featureToRaw[key] || [];
-      layer.bindTooltip(feature.properties.name, { sticky: true });
+      const label = rawGus.length===1 ? rawGus[0] : feature.properties.name;
+      const center = layer.getBounds().getCenter();
+      addLabel(labelGroup, center, label);
+      layer.bindTooltip(label, { sticky: true });
       layer.on('click', () => selectRegion(sido, rawGus, biz));
-      layer.on('mouseover', () => layer.setStyle({ weight: 2.5, color: '#EAEDF5' }));
-      layer.on('mouseout', () => layer.setStyle({ weight: 1, color: '#0E1420' }));
+      layer.on('mouseover', () => layer.setStyle({ weight:2.6 }));
+      layer.on('mouseout', () => layer.setStyle({ weight:1.4 }));
     }
   }).addTo(map);
+  labelGroup.addTo(map);
+  geoLayer._labelGroup = labelGroup;
 
-  if (geoLayer.getBounds().isValid()) {
-    map.fitBounds(geoLayer.getBounds(), { padding: [16,16] });
-  }
-
+  if (geoLayer.getBounds().isValid()) map.fitBounds(geoLayer.getBounds(), { padding:[24,24] });
   document.getElementById('contextTag').textContent = `BC카드 결제 · ${sido} · ${biz.trim()}`;
+  renderLegend(maxAmt);
 }
 
-function colorScale(t) {
-  // 0(연함) ~ 1(진함), 파란 계열
-  const stops = [
-    [21,27,43], [40,55,95], [70,95,160], [107,135,214], [143,165,224]
-  ];
-  const idx = Math.min(stops.length-2, Math.floor(t*(stops.length-1)));
-  const localT = t*(stops.length-1) - idx;
-  const c0 = stops[idx], c1 = stops[idx+1];
-  const rgb = c0.map((v,i) => Math.round(v + (c1[i]-v)*localT));
-  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-}
+// 라벨 레이어를 geoLayer 제거 시 같이 정리
+const _origClearLayers = clearLayers;
+clearLayers = function() {
+  if (geoLayer) {
+    if (geoLayer._labelGroup) map.removeLayer(geoLayer._labelGroup);
+    map.removeLayer(geoLayer);
+    geoLayer = null;
+  }
+};
 
 // ===== 우측 분석 패널 =====
 function selectRegion(sido, rawGus, biz) {
   const guData = REGION_DATA.data[sido];
   const months = REGION_DATA.months;
 
-  // 여러 구가 하나의 폴리곤에 매칭된 경우(예: 화성시 하위 구) 합산
   let amt6=0, cnt6=0, monthly = new Array(months.length).fill(0);
   let anyData = false, lowSampleAny = false;
   rawGus.forEach(gu => {
@@ -198,12 +298,11 @@ function selectRegion(sido, rawGus, biz) {
     return;
   }
 
-  const avgPrice = cnt6>0 ? Math.round(amt6/cnt6) : 0;
-  document.getElementById('statAmt').textContent = fmtWon(amt6);
+  const avgPrice = cnt6>0 ? amt6/cnt6 : 0;
+  document.getElementById('statAmt').textContent = fmtEok(amt6);
   document.getElementById('statCnt').textContent = fmtCnt(cnt6);
-  document.getElementById('statPrice').textContent = fmtWon(avgPrice);
+  document.getElementById('statPrice').textContent = fmtWonExact(avgPrice);
 
-  // 전국 순위: 대표 구(첫번째) 기준값 사용, 병합 케이스는 참고용
   const repInfo = guData[rawGus[0]][biz];
   if (repInfo && repInfo.natRank) {
     document.getElementById('statRank').textContent = `${repInfo.natRank}위 / ${repInfo.natTotal}`;
@@ -227,7 +326,7 @@ function selectRegion(sido, rawGus, biz) {
 
 function renderMonthlyChart(monthly, months) {
   const svg = document.getElementById('monthlyChart');
-  const W=560, H=170, padL=10, padR=10, padT=20, padB=26;
+  const W=560, H=170, padL=10, padR=10, padT=22, padB=26;
   const max = Math.max(...monthly, 1);
   const barW = (W-padL-padR) / monthly.length * 0.6;
   const gap = (W-padL-padR) / monthly.length;
@@ -237,9 +336,9 @@ function renderMonthlyChart(monthly, months) {
     const x = padL + i*gap + (gap-barW)/2;
     const y = H-padB-h;
     const monthLabel = months[i].slice(4)+'월';
-    return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="#6B87D6"/>
-      <text x="${x+barW/2}" y="${H-8}" font-size="11" fill="#8A93A8" text-anchor="middle">${monthLabel}</text>
-      ${v>0 ? `<text x="${x+barW/2}" y="${y-6}" font-size="10" fill="#EAEDF5" text-anchor="middle">${fmtWon(v)}</text>` : ''}`;
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="4" fill="#2554C7"/>
+      <text x="${x+barW/2}" y="${H-8}" font-size="11" fill="#6B7080" text-anchor="middle">${monthLabel}</text>
+      ${v>0 ? `<text x="${x+barW/2}" y="${y-6}" font-size="10.5" fill="#191B22" text-anchor="middle">${fmtEok(v)}</text>` : ''}`;
   }).join('');
   svg.innerHTML = bars;
 }
@@ -255,8 +354,8 @@ function renderTopGuTable(sido, biz, excludeGus) {
   const tbody = document.querySelector('#topGuTable tbody');
   tbody.innerHTML = rows.map(r => {
     const highlight = excludeGus.includes(r.gu);
-    return `<tr style="${highlight?'color:#8FA5E0;font-weight:600;':''}">
-      <td>${r.gu}</td><td>${fmtWon(r.amt)}</td><td>${(r.amt/total*100).toFixed(0)}%</td>
+    return `<tr style="${highlight?'color:#2554C7;font-weight:700;':''}">
+      <td>${r.gu}</td><td>${fmtEok(r.amt)}</td><td>${(r.amt/total*100).toFixed(0)}%</td>
     </tr>`;
   }).join('');
 }
