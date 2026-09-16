@@ -12,10 +12,11 @@ import {
   signed,
   metrics,
   metricText,
-  genderLabels,
-  ageLabels,
   topRegions,
+  industryLabel,
+  genderAgeFor,
 } from "../data";
+import { GenderAgeChart, CountPriceChart } from "./DemoCharts";
 import { municipalityGroups, municipalityName, resolveRegion } from "../data";
 import { MapPanel } from "./GeoMapPanel";
 export function RegionInfoPanel({
@@ -82,7 +83,7 @@ export function RegionInfoPanel({
       <aside className="region-info">
         <span className="eyebrow">{region.province}</span>
         <h3>
-          {region.name} · {industry}
+          {region.name} · {industryLabel(industry)}
         </h3>
         <p>선택 업종의 자료가 없습니다.</p>
         <p className="muted">
@@ -103,7 +104,7 @@ export function RegionInfoPanel({
         <span className="eyebrow">{region.province}</span>
         <h3>
           {region.name}
-          <span> · {industry}</span>
+          <span> · {industryLabel(industry)}</span>
         </h3>
       </div>
       <div className="main-stat">
@@ -198,160 +199,22 @@ function TopRegionsTable({ records, selectedId }) {
   );
 }
 export function RegionDetailAnalysis({ region, industry }) {
-  const max = Math.max(
-    ...Object.values(region.monthly).map((v) => v.amount),
-    1,
-  );
-  const points = months.map((m, i) => ({
-    x: 48 + i * 137,
-    y: 210 - ((region.monthly[m]?.amount || 0) / max) * 175,
-    exists: !!region.monthly[m],
-  }));
-  const path = points
-    .map((p, i) =>
-      p.exists ? `${!i || !points[i - 1].exists ? "M" : "L"}${p.x},${p.y}` : "",
-    )
-    .join(" ");
+  const genderAge = genderAgeFor(region, industry);
   return (
     <section className="region-detail" id="region-detail">
       <div className="detail-heading">
         <h3>
-          {region.province} {region.name} · {industry}
+          {region.province} {region.name} · {industryLabel(industry)}
         </h3>
         <small>{period} · CSV 집계값</small>
       </div>
-      <div className="actual-detail">
-        <div>
-          <div className="chart-title">
-            <h4>월별 결제금액</h4>
-            <small>금액: 원 단위 · 축은 억 원 단위</small>
-          </div>
-          <svg
-            className="line-chart"
-            viewBox="0 0 800 250"
-            role="img"
-            aria-label="CSV 월별 결제금액 추이"
-          >
-            {[0, 1, 2, 3, 4].map((i) => (
-              <g key={i}>
-                <line
-                  x1="48"
-                  x2="765"
-                  y1={35 + (i * 175) / 4}
-                  y2={35 + (i * 175) / 4}
-                  stroke="#d9e0ea"
-                  strokeDasharray="4 4"
-                />
-                <text x="0" y={39 + (i * 175) / 4} className="axis">
-                  {((max * (1 - i / 4)) / 1e8).toFixed(1)}
-                </text>
-              </g>
-            ))}
-            <path d={path} fill="none" stroke="#244986" strokeWidth="3" />
-            {points.map((p, i) => (
-              <g key={months[i]}>
-                {p.exists && (
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r="4"
-                    stroke="#244986"
-                    fill="white"
-                    strokeWidth="2"
-                  >
-                    <title>
-                      {months[i]}:{" "}
-                      {region.monthly[months[i]].amount.toLocaleString("ko-KR")}
-                    </title>
-                  </circle>
-                )}
-                <text x={p.x} y="240" textAnchor="middle" className="axis">
-                  {Number(months[i].slice(4))}월
-                </text>
-              </g>
-            ))}
-          </svg>
-        </div>
-        <div className="monthly-table">
-          <table>
-            <thead>
-              <tr>
-                <th>기준월</th>
-                <th>결제금액</th>
-                <th>결제 건수</th>
-              </tr>
-            </thead>
-            <tbody>
-              {months.map((m) => (
-                <tr key={m}>
-                  <td>{Number(m.slice(4))}월</td>
-                  <td>
-                    {region.monthly[m]
-                      ? money(region.monthly[m].amount)
-                      : "자료 없음"}
-                  </td>
-                  <td>
-                    {region.monthly[m]
-                      ? region.monthly[m].count.toLocaleString("ko-KR")
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="demo-section">
+        <h4>a. 성별·연령별</h4>
+        <GenderAgeChart genderAge={genderAge} label={region.name} industry={industry} />
       </div>
-      <div className="code-analysis">
-        <div>
-          <h4>연령별 결제금액 비중</h4>
-          <div className="code-bars">
-            {Object.entries(region.ages)
-              .sort()
-              .map(([code, value]) => (
-                <div key={code}>
-                  <span>{ageLabels[code] || `코드 ${code}`}</span>
-                  <i
-                    style={{
-                      width: `${region.amount ? (value / region.amount) * 100 : 0}%`,
-                    }}
-                  />
-                  <b>
-                    {region.amount
-                      ? ((value / region.amount) * 100).toFixed(1)
-                      : "—"}
-                    %
-                  </b>
-                </div>
-              ))}
-          </div>
-        </div>
-        <div>
-          <h4>성별 결제금액 비중</h4>
-          <div className="code-bars">
-            {Object.entries(region.genders)
-              .sort()
-              .map(([code, value]) => (
-                <div key={code}>
-                  <span>{genderLabels[code] || `코드 ${code}`}</span>
-                  <i
-                    style={{
-                      width: `${region.amount ? (value / region.amount) * 100 : 0}%`,
-                    }}
-                  />
-                  <b>
-                    {region.amount
-                      ? ((value / region.amount) * 100).toFixed(1)
-                      : "—"}
-                    %
-                  </b>
-                </div>
-              ))}
-          </div>
-          <p className="chart-caption">
-            성별 코드 3(외국인)은 성별이 제공되지 않으며, 성별·연령 미상(x)
-            값도 합계에 포함합니다.
-          </p>
-        </div>
+      <div className="demo-section">
+        <h4>b. 이용 건수 / 결제 단가</h4>
+        <CountPriceChart monthly={region.monthly} months={months} label={region.name} industry={industry} />
       </div>
     </section>
   );
@@ -439,7 +302,7 @@ export function CommercialAnalysis({
         <>
           <div className="analysis-title">
             <h3>
-              {industry} <span>상권 분석</span>
+              {industryLabel(industry)} <span>상권 분석</span>
             </h3>
             <button className="text-button" onClick={() => setModal(true)}>
               업종 변경 ↗

@@ -9,7 +9,7 @@ import {
   Info,
 } from "lucide-react";
 import { trends, stages } from "../mockData";
-import { getRecords, signed, direction, resolveRegion } from "../data";
+import { getRecords, signed, direction, resolveRegion, industryLabel } from "../data";
 import { SectionHeading, shortIndustry } from "./Shared";
 import { TrendChart } from "./TrendChart";
 import { TrendLifecycle } from "./TrendLifecycle";
@@ -115,7 +115,7 @@ export function TrendAnalysis({ industry, selected }) {
               <div className="combined-facts">
                 <div>
                   <span>
-                    {region.province} {region.name} {shortIndustry(industry)}{" "}
+                    {region.province} {region.name} {industryLabel(shortIndustry(industry))}{" "}
                     소비
                   </span>
                   <strong>

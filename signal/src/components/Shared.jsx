@@ -1,6 +1,6 @@
 ﻿import React, { useState, useRef, useEffect } from "react";
 import { ArrowRight, X } from "lucide-react";
-import { industries } from "../data";
+import { industries, industryLabel } from "../data";
 export const shortIndustry = (i) => i.split(" / ")[0];
 export const fmt = (r, k) =>
   k === "amount"
@@ -60,7 +60,9 @@ export function IndustryModal({ current, onClose, onSubmit }) {
             업종을 선택해주세요
           </option>
           {industries.map((i) => (
-            <option key={i}>{i}</option>
+            <option key={i} value={i}>
+              {industryLabel(i)}
+            </option>
           ))}
         </select>
         <button className="primary full" type="submit">

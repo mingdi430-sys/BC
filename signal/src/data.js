@@ -1,5 +1,25 @@
 ﻿import source from "./cardData.json";
+import genderAgeSource from "./genderAgeData.json";
 export const meta = source.meta;
+// 원자료의 업종명에 섞인 어색한 공백 제거 (매칭용 키는 원문 그대로 유지, 화면 표시만 붙여쓰기)
+export const industryLabel = (name) => (name || "").replace(/\s+/g, "");
+export const AGE_GROUPS = ["2", "3", "4", "5", "6"]; // 20대~60대이상 (20대이하 '1', 미상 'x' 제외)
+export const GENDER_GROUPS = ["1", "2"]; // 남성, 여성 (외국인 '3', 미상 'x' 제외)
+// 성별x연령 교차 이용건수 (cardData.json의 ages/genders는 결제금액 주변분포만 있어 별도 파일에서 가져온다)
+export function genderAgeFor(region, industry) {
+  const ids = region.isAggregate ? region.memberIds : [region.id];
+  const totals = Object.fromEntries(
+    GENDER_GROUPS.map((g) => [g, Object.fromEntries(AGE_GROUPS.map((a) => [a, 0]))]),
+  );
+  for (const id of ids) {
+    const [province, name] = id.split("|");
+    const cell = genderAgeSource[`${province}|${name}|${industry}`];
+    if (!cell) continue;
+    for (const g of GENDER_GROUPS)
+      for (const a of AGE_GROUPS) totals[g][a] += cell[g]?.[a] || 0;
+  }
+  return totals;
+}
 export const industries = source.industries;
 export const provinces = [...new Set(source.regions.map((r) => r.province))];
 export const regionCatalog = source.regions;

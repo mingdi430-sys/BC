@@ -563,6 +563,87 @@ dd {
   font-size: 10px;
   color: #7d8da7;
 }
+.demo-section {
+  margin-top: 22px;
+  padding: 20px 22px;
+  background: #fff;
+  border: 1px solid #e0e5ed;
+  border-radius: 14px;
+}
+.demo-section h4 {
+  font-size: 12px;
+  color: #6b7e9b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 12px;
+}
+.chart-narrative {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #262d39;
+  margin: 0 0 14px;
+}
+.chart-narrative b {
+  font-weight: 700;
+}
+.chart-narrative b.hl {
+  color: #457ace;
+}
+.chart-narrative b.up {
+  color: #d23a3a;
+}
+.chart-narrative b.down {
+  color: #2554c7;
+}
+.demo-body {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+}
+.demo-chart {
+  display: block;
+  overflow: visible;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+}
+.demo-table {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.demo-table th,
+.demo-table td {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid #e8ecf2;
+}
+.demo-table th {
+  color: #7586a1;
+  font-weight: 600;
+  font-size: 11px;
+}
+.demo-table td:first-child,
+.demo-table th:first-child {
+  white-space: nowrap;
+}
+.demo-table .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+@media (max-width: 720px) {
+  .demo-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 .detail-grid {
   display: grid;
   grid-template-columns: 64% 36%;
