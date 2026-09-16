@@ -5,11 +5,19 @@ import { CommercialAnalysis } from "./components/DataCommercial";
 import { TrendAnalysis } from "./components/TrendAnalysis";
 export default function App() {
   const [industry, setIndustry] = useState(""),
-    [selected, setSelected] = useState("");
+    [selected, setSelected] = useState(""),
+    [view, setView] = useState("commercial");
   return (
     <>
       <header>
-        <a href="#" className="brand">
+        <a
+          href="#"
+          className="brand"
+          onClick={(e) => {
+            e.preventDefault();
+            setView("commercial");
+          }}
+        >
           <span className="signal-mark" aria-hidden="true">
             <i />
             <i />
@@ -19,8 +27,26 @@ export default function App() {
           <span className="brand-description">상권의 흐름을 읽는 신호</span>
         </a>
         <nav>
-          <a href="#commercial">상권 분석</a>
-          <a href="#trend">트렌드 분석</a>
+          <a
+            href="#commercial"
+            className={view === "commercial" ? "active" : ""}
+            onClick={(e) => {
+              e.preventDefault();
+              setView("commercial");
+            }}
+          >
+            상권 분석
+          </a>
+          <a
+            href="#trend"
+            className={view === "trend" ? "active" : ""}
+            onClick={(e) => {
+              e.preventDefault();
+              setView("trend");
+            }}
+          >
+            트렌드 분석
+          </a>
         </nav>
         <span className="demo-badge">
           <i />
@@ -33,13 +59,16 @@ export default function App() {
           <p>좋은 시작을 위한, 데이터의 새로운 관점.</p>
           <span className="data-badge">BC카드 소비 × 검색 트렌드</span>
         </div>
-        <CommercialAnalysis
-          industry={industry}
-          setIndustry={setIndustry}
-          selected={selected}
-          setSelected={setSelected}
-        />
-        <TrendAnalysis industry={industry} selected={selected} />
+        {view === "commercial" ? (
+          <CommercialAnalysis
+            industry={industry}
+            setIndustry={setIndustry}
+            selected={selected}
+            setSelected={setSelected}
+          />
+        ) : (
+          <TrendAnalysis industry={industry} selected={selected} />
+        )}
         <div className="data-disclaimer">
           <Info size={16} />
           <p>

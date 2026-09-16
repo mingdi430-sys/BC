@@ -98,6 +98,14 @@ nav {
 nav a:hover {
   color: #56657e;
 }
+nav a {
+  padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
+}
+nav a.active {
+  color: #244986;
+  border-bottom-color: #244986;
+}
 .demo-badge {
   margin-left: auto;
   font-size: 10px;
