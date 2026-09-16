@@ -1,9 +1,7 @@
 import React from "react";
-import { AGE_GROUPS, GENDER_GROUPS, industryLabel, money } from "../data";
+import { AGE_GROUPS, GENDER_GROUPS, industryLabel, money, ageLabels, genderLabels } from "../data";
 
-const AGE_LABELS = { "2": "20대", "3": "30대", "4": "40대", "5": "50대", "6": "60대이상" };
 const GENDER_COLOR = { "1": "#2554C7", "2": "#E8398F" };
-const GENDER_NAME = { "1": "남성", "2": "여성" };
 
 // 5, 10, 20, 50 ... 단위로 보기 좋은 눈금 간격을 고른다
 function niceStep(max) {
@@ -44,7 +42,7 @@ export function GenderAgeChart({ genderAge, label, industry }) {
   ranked.sort((a, b) => b.v - a.v);
   const topLabel = (r) => (
     <b className="hl" key={r.g + r.a}>
-      {AGE_LABELS[r.a]} {GENDER_NAME[r.g]}
+      {ageLabels[r.a]} {genderLabels[r.g]}
     </b>
   );
 
@@ -72,7 +70,7 @@ export function GenderAgeChart({ genderAge, label, industry }) {
             return (
               <g key={a}>
                 <text x={x0 - 10} y={yc + 3.5} fontSize="10.5" fill="#191B22" textAnchor="end" fontWeight="600">
-                  {AGE_LABELS[a]}
+                  {ageLabels[a]}
                 </text>
                 <rect x={x0} y={yc - barH / 2} width={maleW} height={barH} rx="2" fill={GENDER_COLOR["1"]} />
                 <rect x={x0 + maleW} y={yc - barH / 2} width={femaleW} height={barH} rx="2" fill={GENDER_COLOR["2"]} />
@@ -85,7 +83,7 @@ export function GenderAgeChart({ genderAge, label, industry }) {
             <tr>
               <th>항목</th>
               {AGE_GROUPS.map((a) => (
-                <th key={a}>{AGE_LABELS[a]}</th>
+                <th key={a}>{ageLabels[a]}</th>
               ))}
             </tr>
           </thead>
@@ -94,7 +92,7 @@ export function GenderAgeChart({ genderAge, label, industry }) {
               <tr key={g}>
                 <td>
                   <span className="dot" style={{ background: GENDER_COLOR[g] }} />
-                  {GENDER_NAME[g]}
+                  {genderLabels[g]}
                 </td>
                 {AGE_GROUPS.map((a) => (
                   <td key={a}>{pct(g, a).toFixed(1)}%</td>

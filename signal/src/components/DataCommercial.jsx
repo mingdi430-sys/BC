@@ -229,7 +229,6 @@ export function CommercialAnalysis({
     [metric, setMetric] = useState("amount"),
     [modal, setModal] = useState(false);
   const all = useMemo(() => getRecords(industry), [industry]);
-  const scope = all.filter((r) => !province || r.province === province);
   const groups = useMemo(() => municipalityGroups(all), [all]);
   const choices = groups.filter((r) => r.province === province);
   const region = resolveRegion(all, selected);
