@@ -2105,3 +2105,48 @@ footer .signal-mark i {
     gap: 7px;
   }
 }
+.low-sample-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fbf3e8;
+  color: #8a6a2f;
+  font-size: 11px;
+  padding: 10px 12px;
+  margin-top: 12px;
+}
+.low-sample-warn svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.top-regions {
+  margin-top: 18px;
+}
+.top-regions table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.top-regions td {
+  padding: 6px 4px;
+  border-bottom: 1px solid #e7ebf1;
+  color: #46536b;
+}
+.top-regions .rank {
+  width: 20px;
+  color: #8a97ab;
+  font-variant-numeric: tabular-nums;
+}
+.top-regions .share {
+  text-align: right;
+  color: #8a97ab;
+  width: 40px;
+}
+.top-regions tr.active {
+  font-weight: 700;
+  color: #244986;
+}
+.top-regions tr.active td {
+  border-bottom-color: #b7c6de;
+}

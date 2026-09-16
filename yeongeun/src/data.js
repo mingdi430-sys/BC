@@ -14,14 +14,32 @@ export function change(monthly) {
     ? null
     : (current.amount / previous.amount - 1) * 100;
 }
+export function periodChange(monthly) {
+  const first = monthly[months[0]],
+    last = monthly[months.at(-1)];
+  return !first || !last || first.amount === 0
+    ? null
+    : (last.amount / first.amount - 1) * 100;
+}
 export function getRecords(industry) {
   const found = new Map(
     source.records.filter((r) => r.industry === industry).map((r) => [r.id, r]),
   );
+  const ranked = [...found.values()].sort((a, b) => b.amount - a.amount),
+    rankOf = new Map(ranked.map((r, i) => [r.id, i + 1])),
+    nationalTotal = ranked.length;
   return regionCatalog.map((r) => {
     const match = found.get(r.id);
     return match
-      ? { ...match, hasData: true, growth: change(match.monthly) }
+      ? {
+          ...match,
+          hasData: true,
+          growth: change(match.monthly),
+          periodGrowth: periodChange(match.monthly),
+          nationalRank: rankOf.get(r.id),
+          nationalTotal,
+          lowSample: Object.keys(match.monthly).length <= 2,
+        }
       : {
           ...r,
           industry,
@@ -29,6 +47,10 @@ export function getRecords(industry) {
           amount: null,
           count: null,
           growth: null,
+          periodGrowth: null,
+          nationalRank: null,
+          nationalTotal,
+          lowSample: false,
           monthly: {},
           ages: {},
           genders: {},
@@ -73,6 +95,14 @@ export const direction = (n) =>
       : n < 0
         ? "최근 감소"
         : "변화 없음";
+export function topRegions(records, limit = 8) {
+  const withData = records.filter((r) => r.hasData);
+  const total = withData.reduce((s, r) => s + r.amount, 0) || 1;
+  return withData
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, limit)
+    .map((r) => ({ ...r, share: (r.amount / total) * 100 }));
+}
 export const metrics = {
   amount: "기간 결제금액",
   count: "기간 결제 건수",

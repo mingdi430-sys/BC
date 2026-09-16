@@ -14,6 +14,7 @@ import {
   metricText,
   genderLabels,
   ageLabels,
+  topRegions,
 } from "../data";
 import { municipalityGroups, municipalityName, resolveRegion } from "../data";
 import { MapPanel } from "./GeoMapPanel";
@@ -131,7 +132,28 @@ export function RegionInfoPanel({
             {Object.keys(region.monthly).length} / {months.length}개월
           </dd>
         </div>
+        <div>
+          <dt>기간 전체 증감률</dt>
+          <dd className={region.periodGrowth < 0 ? "negative" : ""}>
+            {signed(region.periodGrowth)}
+            <small> · 1월/6월 대비</small>
+          </dd>
+        </div>
+        {!region.isAggregate && region.nationalRank && (
+          <div>
+            <dt>전국 동일 업종 순위</dt>
+            <dd>
+              {region.nationalRank}위 / {region.nationalTotal}개 지역
+            </dd>
+          </div>
+        )}
       </dl>
+      {region.lowSample && (
+        <p className="low-sample-warn">
+          <Info size={14} /> 6개월 중 자료가 있는 달이 2개월 이하로 표본이
+          작습니다. 참고용으로만 활용하세요.
+        </p>
+      )}
       <div className="insight">
         <Info size={17} />
         <p>
@@ -147,10 +169,32 @@ export function RegionInfoPanel({
             : "지역은 CSV의 “" + region.name + "” 단위를 그대로 사용합니다."}
         </p>
       </div>
+      <TopRegionsTable records={records} selectedId={region.id} />
       <a className="detail-link" href="#region-detail">
         월별 상세 분석 보기 <ArrowRight size={15} />
       </a>
     </aside>
+  );
+}
+function TopRegionsTable({ records, selectedId }) {
+  const top = topRegions(records, 8);
+  if (!top.length) return null;
+  return (
+    <div className="top-regions">
+      <span className="eyebrow">이 범위 내 결제액 상위 지역</span>
+      <table>
+        <tbody>
+          {top.map((r, i) => (
+            <tr key={r.id} className={r.id === selectedId ? "active" : ""}>
+              <td className="rank">{i + 1}</td>
+              <td>{r.name}</td>
+              <td>{money(r.amount)}</td>
+              <td className="share">{r.share.toFixed(0)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 export function RegionDetailAnalysis({ region, industry }) {
