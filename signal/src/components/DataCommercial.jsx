@@ -238,6 +238,13 @@ export function CommercialAnalysis({
   const districts = cityGroup?.isAggregate
     ? all.filter((r) => cityGroup.memberIds.includes(r.id))
     : [];
+  // 성남시처럼 하위 구가 있는 시는 그 구들 전체로, 밀양시처럼 하위 구가
+  // 없는 단일 시·군은 선택된 그 지역 하나로 지도를 좁혀서 확대한다.
+  const focusIds = cityGroup?.isAggregate
+    ? cityGroup.memberIds
+    : cityGroup && selected === cityGroup.id
+      ? [cityGroup.id]
+      : undefined;
   const visible = cityGroup?.isAggregate
     ? districts
     : province
@@ -408,8 +415,8 @@ export function CommercialAnalysis({
               selected={selected}
               setSelected={choose}
               metric={metric}
-              areaIds={districts.length ? cityGroup.memberIds : undefined}
-              areaName={districts.length ? city : ""}
+              areaIds={focusIds}
+              areaName={focusIds ? city : ""}
               aggregateSelected={!!region?.isAggregate}
               onClearArea={() => setSelected("")}
             />
