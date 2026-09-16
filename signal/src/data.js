@@ -1,5 +1,7 @@
 ﻿import source from "./cardData.json";
 import genderAgeSource from "./genderAgeData.json";
+import populationSource from "./populationData.json";
+import businessDensitySource from "./businessDensityData.json";
 export const meta = source.meta;
 // 원자료의 업종명에 섞인 어색한 공백 제거 (매칭용 키는 원문 그대로 유지, 화면 표시만 붙여쓰기)
 export const industryLabel = (name) => (name || "").replace(/\s+/g, "");
@@ -41,6 +43,22 @@ export function periodChange(monthly) {
     ? null
     : (last.amount / first.amount - 1) * 100;
 }
+// 인구는 지역 단위(업종 무관), 경쟁업체 수는 지역x업종 단위.
+// 둘 다 카드사 CSV가 아닌 별도 공공데이터(행정안전부/소상공인시장진흥공단)로,
+// 아직 못 받아온 지역은 null로 남기고 값이 있는 척하지 않는다.
+export function populationOf(id) {
+  return populationSource.data[id]?.population ?? null;
+}
+export function competitorsOf(id, industry) {
+  const cell = businessDensitySource.data[id];
+  return cell ? (cell[industry] ?? null) : null;
+}
+export function perCapita(amount, population) {
+  return amount != null && population ? amount / population : null;
+}
+export function perCompetitor(amount, competitors) {
+  return amount != null && competitors ? amount / competitors : null;
+}
 export function getRecords(industry) {
   const found = new Map(
     source.records.filter((r) => r.industry === industry).map((r) => [r.id, r]),
@@ -50,6 +68,8 @@ export function getRecords(industry) {
     nationalTotal = ranked.length;
   return regionCatalog.map((r) => {
     const match = found.get(r.id);
+    const population = populationOf(r.id);
+    const competitors = competitorsOf(r.id, industry);
     return match
       ? {
           ...match,
@@ -59,6 +79,10 @@ export function getRecords(industry) {
           nationalRank: rankOf.get(r.id),
           nationalTotal,
           lowSample: Object.keys(match.monthly).length <= 2,
+          population,
+          competitors,
+          perCapitaAmount: perCapita(match.amount, population),
+          perCompetitorAmount: perCompetitor(match.amount, competitors),
         }
       : {
           ...r,
@@ -74,12 +98,28 @@ export function getRecords(industry) {
           monthly: {},
           ages: {},
           genders: {},
+          population,
+          competitors,
+          perCapitaAmount: null,
+          perCompetitorAmount: null,
         };
   });
 }
 export function summarize(records) {
   const result = { amount: 0, count: 0, monthly: {}, ages: {}, genders: {} };
+  let population = 0,
+    hasPopulation = false,
+    competitors = 0,
+    hasCompetitors = false;
   for (const r of records) {
+    if (r.population != null) {
+      population += r.population;
+      hasPopulation = true;
+    }
+    if (r.competitors != null) {
+      competitors += r.competitors;
+      hasCompetitors = true;
+    }
     if (!r.hasData) continue;
     result.amount += r.amount;
     result.count += r.count;
@@ -97,6 +137,10 @@ export function summarize(records) {
     result.amount = null;
     result.count = null;
   }
+  result.population = hasPopulation ? population : null;
+  result.competitors = hasCompetitors ? competitors : null;
+  result.perCapitaAmount = perCapita(result.amount, result.population);
+  result.perCompetitorAmount = perCompetitor(result.amount, result.competitors);
   return result;
 }
 export const money = (n) =>
@@ -127,6 +171,8 @@ export const metrics = {
   amount: "기간 결제금액",
   count: "기간 결제 건수",
   growth: "최근 월 증감률",
+  perCapitaAmount: "인구 1인당 결제금액",
+  perCompetitorAmount: "업체당 평균 매출(추정)",
 };
 export const metricText = (r, k) =>
   r[k] == null
@@ -135,7 +181,9 @@ export const metricText = (r, k) =>
       ? money(r.amount)
       : k === "count"
         ? `${r.count.toLocaleString("ko-KR")}건`
-        : signed(r.growth);
+        : k === "growth"
+          ? signed(r.growth)
+          : money(r[k]);
 
 // Municipality groups retain CSV leaf records; only named city + district pairs aggregate.
 export const municipalityName = (record) =>

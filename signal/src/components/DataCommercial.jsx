@@ -43,11 +43,7 @@ export function RegionInfoPanel({
               onClick={() => setSort(k)}
               key={k}
             >
-              {k === "amount"
-                ? "금액순"
-                : k === "count"
-                  ? "건수순"
-                  : "증감률순"}
+              {v}순
             </button>
           ))}
         </div>
@@ -148,7 +144,36 @@ export function RegionInfoPanel({
             </dd>
           </div>
         )}
+        <div>
+          <dt>주민등록 인구 (2026.06)</dt>
+          <dd>
+            {region.population != null
+              ? `${region.population.toLocaleString("ko-KR")}명`
+              : "자료 없음"}
+          </dd>
+        </div>
+        <div>
+          <dt>인구 1인당 결제금액</dt>
+          <dd>{money(region.perCapitaAmount)}</dd>
+        </div>
+        <div>
+          <dt>업종 경쟁업체 수 (추정)</dt>
+          <dd>
+            {region.competitors != null
+              ? `${region.competitors.toLocaleString("ko-KR")}개`
+              : "자료 없음"}
+          </dd>
+        </div>
+        <div>
+          <dt>업체당 평균 매출 (추정)</dt>
+          <dd>{money(region.perCompetitorAmount)}</dd>
+        </div>
       </dl>
+      <p className="chart-caption">
+        경쟁업체 수는 소상공인시장진흥공단 상가업소정보(2026.06 기준)의 유사
+        업종을 근사 매칭한 값으로, BC카드 업종 분류와 정확히 일치하지
+        않습니다. 인구는 행정안전부 주민등록인구현황(2026.06) 기준입니다.
+      </p>
       {region.lowSample && (
         <p className="low-sample-warn">
           <Info size={14} /> 6개월 중 자료가 있는 달이 2개월 이하로 표본이

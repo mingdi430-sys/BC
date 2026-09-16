@@ -63,3 +63,13 @@
 - 하위 구가 없는 시·군은 구 선택을 비활성화합니다. 세종은 원본 지역 단위를 유지합니다.
 - 시 전체를 선택하면 원본 하위 구의 금액·건수·월별 수치·인구통계 코드를 합산합니다. 증감률과 건당 금액은 합산된 분자·분모로 다시 계산합니다. 자료가 없는 구를 0으로 간주하지 않으며 포함된 구 수를 표시합니다.
 - 검증: `node scripts/test-hierarchy.mjs` (11개 업종의 합계 보존, 구 중복 방지, 시 단위 증감률 계산).
+
+## 인구·경쟁업체 데이터 (수요/공급 정규화)
+
+절대 결제금액만으로는 지역 간 비교가 왜곡됩니다(인구가 많은 지역이 항상 위로 감, 이미 포화된 지역과 진짜 기회 지역을 구분 못 함). 이를 보완하기 위해 두 공공데이터를 추가로 연동했습니다.
+
+- **인구**: 행정안전부 주민등록 인구현황 API(`apis.data.go.kr/1741000/stdgPpltnHhStus`, 2026.06 기준). 시군구 내 모든 법정동 인구를 합산합니다. 수집: `node scripts/prepare_population.mjs` → `src/populationData.json`.
+- **경쟁업체 수**: 소상공인시장진흥공단 상가(상권)정보 API(`apis.data.go.kr/B553077/api/open/sdsc2`, 2026.06 기준). 시군구별로 BC카드 업종에 대응하는 SEMAS 업종 코드의 상가업소 수를 셉니다. 수집: `node scripts/prepare_business_density.mjs` → `src/businessDensityData.json`.
+- **업종 매칭은 근사치입니다.** SEMAS 업종 분류(대/중/소분류, KSIC 기반)는 BC카드의 11개 자체 분류와 체계가 달라 완벽한 1:1 매칭이 불가능합니다. 각 BC 업종에 대응시킨 SEMAS 코드와 근거는 `prepare_business_density.mjs`의 주석에 남겨뒀습니다. 화면에도 근사치임을 표시합니다.
+- **파생 지표**: 인구 1인당 결제금액(amount/population), 업체당 평균 매출 추정(amount/competitors). 지도 "표시 기준" 드롭다운과 지역 상세 패널에서 확인할 수 있습니다.
+- 두 API 모두 data.go.kr 계정의 인증키가 필요합니다(`.env`의 `DATA_GO_KR_KEY`, git에 커밋되지 않음). 원본 CSV가 바뀌어도 이 두 데이터는 카드사 CSV와 무관하므로 별도로 갱신해야 합니다.
