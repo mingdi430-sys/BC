@@ -1,0 +1,156 @@
+import React, { useMemo, useState } from "react";
+import { Send } from "lucide-react";
+import {
+  industries,
+  provinces,
+  regionCatalog,
+  industryLabel,
+  metrics,
+  resolveRegion,
+} from "../data";
+
+const API_BASE = "http://localhost:8000";
+
+export function ChatPanel({
+  industry,
+  setIndustry,
+  selected,
+  setSelected,
+  province,
+  metric,
+  setMetric,
+  all,
+  region,
+  view,
+}) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [configured, setConfigured] = useState(true);
+
+  const screen = useMemo(
+    () => ({
+      view,
+      industry,
+      industryLabel: industryLabel(industry),
+      province,
+      metric,
+      selectedRegionId: selected,
+      region: region
+        ? {
+            id: region.id,
+            province: region.province,
+            name: region.name,
+            isAggregate: !!region.isAggregate,
+            hasData: region.hasData,
+            amount: region.amount,
+            count: region.count,
+            growth: region.growth,
+            periodGrowth: region.periodGrowth,
+            population: region.population,
+            competitors: region.competitors,
+            perCapitaAmount: region.perCapitaAmount,
+            perCompetitorAmount: region.perCompetitorAmount,
+            nationalRank: region.nationalRank,
+            nationalTotal: region.nationalTotal,
+            lowSample: region.lowSample,
+          }
+        : null,
+      catalog: { industries, provinces, regions: regionCatalog },
+    }),
+    [view, industry, province, metric, selected, region],
+  );
+
+  function applyActions(actions) {
+    for (const action of actions || []) {
+      switch (action.type) {
+        case "set_industry":
+          if (industries.includes(action.industry)) setIndustry(action.industry);
+          break;
+        case "show_region": {
+          if (action.region_id === "") {
+            setSelected("");
+            break;
+          }
+          const target = resolveRegion(all, action.region_id);
+          if (target) setSelected(target.id); // 존재하지 않는 id는 조용히 무시
+          break;
+        }
+        case "set_metric":
+          if (action.metric in metrics) setMetric(action.metric);
+          break;
+        case "clear_selection":
+          setSelected("");
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  async function sendMessage(e) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || loading) return;
+    const next = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          history: next.slice(-13, -1).map((m) => ({ role: m.role, content: m.content })),
+          screen,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      applyActions(data.actions);
+      setConfigured(data.configured);
+      setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+    } catch {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "채팅 서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인해주세요." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <aside className="chat-panel">
+      <div className="chat-header">
+        <strong>신호등 도우미</strong>
+        {!configured && <span className="chat-badge">설정 준비중</span>}
+      </div>
+      <div className="chat-messages">
+        {messages.length === 0 && (
+          <p className="chat-empty">
+            지역이나 업종에 대해 물어보거나, "강릉시 갈비전문점 보여줘"처럼 요청해보세요.
+          </p>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`chat-bubble ${m.role}`}>
+            {m.content}
+          </div>
+        ))}
+        {loading && <div className="chat-bubble assistant chat-loading">…</div>}
+      </div>
+      <form className="chat-input" onSubmit={sendMessage}>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="메시지를 입력하세요"
+          aria-label="채팅 입력"
+        />
+        <button type="submit" className="icon-button" aria-label="전송" disabled={loading}>
+          <Send size={16} />
+        </button>
+      </form>
+    </aside>
+  );
+}

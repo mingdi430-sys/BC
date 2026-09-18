@@ -7,7 +7,6 @@ import {
   provinces,
   months,
   period,
-  getRecords,
   money,
   signed,
   metrics,
@@ -17,7 +16,7 @@ import {
   genderAgeFor,
 } from "../data";
 import { GenderAgeChart, CountPriceChart } from "./DemoCharts";
-import { municipalityGroups, municipalityName, resolveRegion } from "../data";
+import { municipalityGroups, municipalityName } from "../data";
 import { MapPanel } from "./GeoMapPanel";
 export function RegionInfoPanel({
   records,
@@ -249,14 +248,16 @@ export function CommercialAnalysis({
   setIndustry,
   selected,
   setSelected,
+  province,
+  setProvince,
+  metric,
+  setMetric,
+  all,
+  region,
 }) {
-  const [province, setProvinceState] = useState(""),
-    [metric, setMetric] = useState("amount"),
-    [modal, setModal] = useState(false);
-  const all = useMemo(() => getRecords(industry), [industry]);
+  const [modal, setModal] = useState(false);
   const groups = useMemo(() => municipalityGroups(all), [all]);
   const choices = groups.filter((r) => r.province === province);
-  const region = resolveRegion(all, selected);
   const city = region ? municipalityName(region) : "";
   const cityGroup = choices.find((r) => r.name === city);
   const districts = cityGroup?.isAggregate
@@ -280,17 +281,6 @@ export function CommercialAnalysis({
     : province === "세종특별자치시"
       ? "지역"
       : "시·군";
-  function setProvince(p) {
-    setProvinceState(p);
-    setSelected("");
-  }
-  function choose(id) {
-    setSelected(id);
-    if (id) {
-      const target = resolveRegion(all, id);
-      if (target) setProvinceState(target.province);
-    }
-  }
   return (
     <section id="commercial">
       <SectionHeading
@@ -364,7 +354,7 @@ export function CommercialAnalysis({
                   aria-label={cityLabel}
                   disabled={!province}
                   value={cityGroup?.id || ""}
-                  onChange={(e) => choose(e.target.value)}
+                  onChange={(e) => setSelected(e.target.value)}
                 >
                   <option value="">
                     {province ? cityLabel + " 전체" : "시·도를 먼저 선택"}
@@ -392,7 +382,7 @@ export function CommercialAnalysis({
                           : ""
                       }
                       onChange={(e) =>
-                        choose(e.target.value || cityGroup?.id || "")
+                        setSelected(e.target.value || cityGroup?.id || "")
                       }
                     >
                       <option value="">
@@ -437,7 +427,7 @@ export function CommercialAnalysis({
               province={province}
               setProvince={setProvince}
               selected={selected}
-              setSelected={choose}
+              setSelected={setSelected}
               metric={metric}
               areaIds={focusIds}
               areaName={focusIds ? city : ""}
@@ -447,7 +437,7 @@ export function CommercialAnalysis({
             <RegionInfoPanel
               records={visible}
               region={region}
-              setSelected={choose}
+              setSelected={setSelected}
               industry={industry}
               province={province}
             />
@@ -469,7 +459,6 @@ export function CommercialAnalysis({
           onClose={() => setModal(false)}
           onSubmit={(value) => {
             setIndustry(value);
-            setSelected("");
             setModal(false);
           }}
         />

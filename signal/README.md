@@ -73,3 +73,15 @@
 - **업종 매칭은 근사치입니다.** SEMAS 업종 분류(대/중/소분류, KSIC 기반)는 BC카드의 11개 자체 분류와 체계가 달라 완벽한 1:1 매칭이 불가능합니다. 각 BC 업종에 대응시킨 SEMAS 코드와 근거는 `prepare_business_density.mjs`의 주석에 남겨뒀습니다. 화면에도 근사치임을 표시합니다.
 - **파생 지표**: 인구 1인당 결제금액(amount/population), 업체당 평균 매출 추정(amount/competitors). 지도 "표시 기준" 드롭다운과 지역 상세 패널에서 확인할 수 있습니다.
 - 두 API 모두 data.go.kr 계정의 인증키가 필요합니다(`.env`의 `DATA_GO_KR_KEY`, git에 커밋되지 않음). 원본 CSV가 바뀌어도 이 두 데이터는 카드사 CSV와 무관하므로 별도로 갱신해야 합니다.
+
+## 챗봇 (LLM 분석 도우미)
+
+지도·드롭다운 클릭만으로는 "성장 중인데 경쟁이 적은 지역"처럼 복합 조건을 찾기 어렵습니다. 화면 오른쪽 상시 채팅 패널에서 한국어로 질문하면, 화면에 이미 계산된 수치만 근거로 답하고 필요하면 지도/업종/지표를 직접 조작합니다.
+
+- **백엔드**: `backend/` 아래 FastAPI 서버(`main.py`, `llm_client.py`). `POST /chat`이 현재 화면 상태(업종·지역·지표와 이미 계산된 통계)를 받아 Anthropic Claude에 전달하고, `set_industry`/`show_region`/`set_metric`/`clear_selection` 네 가지 도구(tool) 호출과 한국어 응답을 반환합니다.
+  - 실행: `cd backend`, 가상환경 생성 후 `pip install -r requirements.txt`, `uvicorn main:app --reload --port 8000`.
+  - `backend/.env`에 `ANTHROPIC_API_KEY=sk-ant-...` 한 줄을 추가해야 실제 응답을 받습니다(git에 커밋되지 않음). 키가 없어도 서버는 정상 기동하며, `/chat`은 에러 없이 "채팅 기능이 아직 설정되지 않았어요"라고 정직하게 답합니다.
+- **프런트엔드**: `src/components/ChatPanel.jsx`. LLM의 도구 호출을 그대로 실행하지 않고, `App.jsx`가 지도·드롭다운 클릭과 **동일하게** 사용하는 `setSelected`/`setIndustry`/`setMetric` 함수를 그대로 호출합니다 — 별도의 렌더링 경로가 아니라 기존 상태 갱신 경로를 공유합니다. 지역 id는 LLM이 만들어 보내면 `resolveRegion`으로 검증 후 성공한 경우에만 반영합니다(존재하지 않는 id는 조용히 무시).
+- **정직성**: 시스템 프롬프트가 제공된 수치 외 추측을 금지하며, 값이 없으면 화면 UI와 동일하게 "자료 없음"/"비교 불가"라고 답하도록 지시합니다. 백엔드는 결제금액·인구 1인당 결제금액 같은 수치를 직접 계산하지 않고, `data.js`가 이미 계산한 값만 그대로 전달받아 인용합니다.
+
+소스: backend/main.py, backend/llm_client.py, src/components/ChatPanel.jsx, src/App.jsx.

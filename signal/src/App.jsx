@@ -1,12 +1,35 @@
-﻿import React, { useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { Info } from "lucide-react";
 
 import { CommercialAnalysis } from "./components/DataCommercial";
 import { TrendAnalysis } from "./components/TrendAnalysis";
+import { ChatPanel } from "./components/ChatPanel";
+import { getRecords, resolveRegion } from "./data";
 export default function App() {
   const [industry, setIndustry] = useState(""),
     [selected, setSelected] = useState(""),
-    [view, setView] = useState("commercial");
+    [view, setView] = useState("commercial"),
+    [province, setProvinceState] = useState(""),
+    [metric, setMetric] = useState("amount");
+
+  const all = useMemo(() => getRecords(industry), [industry]);
+  const region = resolveRegion(all, selected);
+
+  function setProvince(p) {
+    setProvinceState(p);
+    setSelected("");
+  }
+  function choose(id) {
+    setSelected(id);
+    if (id) {
+      const target = resolveRegion(all, id);
+      if (target) setProvinceState(target.province);
+    }
+  }
+  function chooseIndustry(value) {
+    setIndustry(value);
+    setSelected("");
+  }
   return (
     <>
       <header>
@@ -59,16 +82,36 @@ export default function App() {
           <p>좋은 시작을 위한, 데이터의 새로운 관점.</p>
           <span className="data-badge">BC카드 소비 × 검색 트렌드</span>
         </div>
-        {view === "commercial" ? (
-          <CommercialAnalysis
+        <div className="app-layout">
+          {view === "commercial" ? (
+            <CommercialAnalysis
+              industry={industry}
+              setIndustry={chooseIndustry}
+              selected={selected}
+              setSelected={choose}
+              province={province}
+              setProvince={setProvince}
+              metric={metric}
+              setMetric={setMetric}
+              all={all}
+              region={region}
+            />
+          ) : (
+            <TrendAnalysis industry={industry} selected={selected} />
+          )}
+          <ChatPanel
             industry={industry}
-            setIndustry={setIndustry}
+            setIndustry={chooseIndustry}
             selected={selected}
-            setSelected={setSelected}
+            setSelected={choose}
+            province={province}
+            metric={metric}
+            setMetric={setMetric}
+            all={all}
+            region={region}
+            view={view}
           />
-        ) : (
-          <TrendAnalysis industry={industry} selected={selected} />
-        )}
+        </div>
         <div className="data-disclaimer">
           <Info size={16} />
           <p>
