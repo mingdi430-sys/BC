@@ -1,0 +1,169 @@
+<title>TimesFM 검증 보고</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@700;900&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+:root{color-scheme:light;--ground:#F2F5F4;--surface:#FFFFFF;--surface-2:#E9EEEC;--line:#D5DDDA;--line-soft:#E6ECE9;--ink:#16212B;--ink-2:#4E5D69;--ink-3:#7E8B95;--accent:#1F4E9C;--accent-soft:#DCE6F7;--sig-green:#1E9C58;--sig-amber:#D99A06;--sig-red:#D4413A;--sig-grey:#98A4AC;--s2:#eb6834}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){color-scheme:dark;--ground:#111719;--surface:#1A2225;--surface-2:#222C30;--line:#33403F;--line-soft:#2A3538;--ink:#EEF3F1;--ink-2:#B4C0BB;--ink-3:#7F8D8A;--accent:#6B9BE8;--accent-soft:#213556;--sig-green:#3FBF78;--sig-amber:#E6B33A;--sig-red:#EA6A62;--sig-grey:#7C8A91;--s2:#d95926}}
+:root[data-theme="dark"]{color-scheme:dark;--ground:#111719;--surface:#1A2225;--surface-2:#222C30;--line:#33403F;--line-soft:#2A3538;--ink:#EEF3F1;--ink-2:#B4C0BB;--ink-3:#7F8D8A;--accent:#6B9BE8;--accent-soft:#213556;--sig-green:#3FBF78;--sig-amber:#E6B33A;--sig-red:#EA6A62;--sig-grey:#7C8A91;--s2:#d95926}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.6;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:"Gothic A1",sans-serif;margin:0;text-wrap:balance}
+.wrap{width:min(1100px,100%);margin:0 auto;padding:36px 24px 64px;display:grid;gap:28px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+h1{font-size:clamp(24px,3.4vw,34px);font-weight:900;letter-spacing:-.01em}
+h2{font-size:19px;font-weight:700;margin-bottom:4px}
+p{margin:0;max-width:70ch}
+.muted{color:var(--ink-2)}.small{font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;display:grid;gap:14px;min-width:0}
+.verdict{border-left:6px solid var(--sig-amber)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.tile{border-top:2px solid var(--line);padding-top:8px}
+.tile .v{font-family:"Gothic A1",sans-serif;font-weight:900;font-size:26px;line-height:1.15}
+.tile .v small{font-size:13px;color:var(--ink-2);font-weight:700;margin-left:2px}
+.tile .l{font-size:12px;color:var(--ink-3);margin-top:2px}
+.tile.green{border-top-color:var(--sig-green)}.tile.amber{border-top-color:var(--sig-amber)}.tile.red{border-top-color:var(--sig-red)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.multi{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.cell{display:grid;gap:6px;min-width:0}
+.cell .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:600}
+.cell .t small{font-weight:500;color:var(--ink-3)}
+.tl{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.legend i.band{height:10px;opacity:.35}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:600;color:var(--ink-3);font-size:12px;border-bottom:1px solid var(--line);padding:6px 6px}
+td{padding:6px 6px;border-bottom:1px solid var(--line-soft)}
+td.n,th.n{text-align:right}
+.tag{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;background:var(--surface-2);color:var(--ink-2)}
+.tag.pos{background:var(--accent-soft);color:var(--accent)}
+ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.note{background:var(--surface-2);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--ink-2)}
+@media (max-width:820px){.two{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <div>
+    <div class="eyebrow">유행 신호등 · 엔진 C · 예측 모델 검증</div>
+    <h1>TimesFM은 그대로 써도 되는가</h1>
+    <p class="muted" id="sub"></p>
+  </div>
+
+  <div class="card verdict">
+    <h2>결론: 초록은 믿고, 빨강은 "규칙 단계"와 같이 읽으면 그대로 쓸 수 있다</h2>
+    <p>백테스트 1,033개 시점에서 "26주 뒤 검색량이 지금의 70% 이상 남는가"를 물었다. 유지 확률 90% 이상(초록)이라고 한 693건 중 실제 유지가 98%였다. 반면 50% 미만(빨강)이라고 한 64건은 실제 하락이 절반뿐이었다. 빨강이 틀리는 곳은 한 종류다. <b>급등이 시작되기 직전</b>에 "곧 꺼진다"고 비관한다. 이미 정점을 지난 뒤의 빨강은 맞는다.</p>
+    <div class="tiles" id="tiles"></div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>신호별 실제 결과</h2>
+      <p class="muted small">모델이 낸 신호 색깔대로 묶었을 때 26주 뒤 실제로 유지된 비율. 초록은 정확하고, 빨강은 동전 던지기 수준이다.</p>
+      <div id="bysig"></div>
+    </div>
+    <div class="card">
+      <h2>확률이 실제와 맞는가 (보정도)</h2>
+      <p class="muted small">모델이 말한 확률(가로) 대 실제 유지율(세로). 대각선 위에 있으면 모델이 지나치게 비관적이다. 낮은 확률 구간이 전부 대각선 위에 있다.</p>
+      <div id="calib"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>유행 곡선 위에서 예측이 어떻게 생겼나</h2>
+    <p class="muted small">실선은 실제 검색 지수, 세로 점선은 예측을 낸 시점, 부채꼴은 그 시점에서 본 26주 예측(10~90% 구간, 점선=중앙값). 부채꼴 색은 그 시점의 신호. 시점별 숫자는 유지 확률 → 실제 비율.</p>
+    <div class="multi" id="examples"></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>실제 검색 지수 (쿠팡 평균=100)</span><span><i class="band" style="background:var(--sig-green)"></i>초록 예측</span><span><i class="band" style="background:var(--sig-amber)"></i>노랑 예측</span><span><i class="band" style="background:var(--sig-red)"></i>빨강 예측</span></div>
+  </div>
+
+  <div class="card">
+    <h2>시점별 유지 확률과 실제 결과</h2>
+    <p class="muted small">4주마다 낸 유지 확률(선)과, 실제로 26주 뒤 70% 미만으로 떨어진 구간(붉은 배경). 선이 붉은 배경에서 낮고 나머지에서 높을수록 좋다. 위쪽은 유행 사례, 아래쪽은 안정 사례.</p>
+    <div class="tl" id="timelines"></div>
+  </div>
+
+  <div class="card">
+    <h2>키워드별 성적</h2>
+    <p class="muted small">AUC는 1이 완벽, 0.5가 무작위. 안정 품목은 하락 사례가 없어 AUC를 계산할 수 없다(–). 비율 오차는 |예측 중앙값/현재 − 실제/현재|의 중앙값이며, naive는 "그대로 유지"라고 찍었을 때.</p>
+    <div style="overflow-x:auto"><table id="kwtable"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>그대로 쓰기 위한 조건 세 가지</h2>
+    <ol>
+      <li><b>초록(≥0.9)은 그대로 쓴다.</b> 693건 중 98%가 실제 유지. 신호등에서 "들어가도 된다"의 근거로 충분하다.</li>
+      <li><b>빨강은 규칙 단계와 교차한다.</b> 규칙이 태동·급등이라고 하는데 모델이 빨강이면, 급등 직전 비관일 가능성이 크므로 노랑으로 낮춰 표시한다. 규칙이 정점·하락일 때의 빨강은 그대로 둔다. 이 조합은 코드 두 줄이고 백테스트로 효과를 바로 잴 수 있다.</li>
+      <li><b>보정은 제출 후로 미룬다.</b> 낮은 확률 구간이 일관되게 비관적이라 단조 보정(isotonic)으로 고칠 수 있지만, 지금 표본 1,033개가 곡선 14개에서 나온 것이라 같은 데이터로 보정하고 평가하면 성적이 부풀려진다. 후보 곡선 200개가 모인 뒤에 한다.</li>
+    </ol>
+    <div class="note">한계를 그대로 적자면: 표본의 90%가 "유지"라 안정 품목이 AUC를 끌어올린다. 크로플(AUC 0.53)·소금빵(0.57)처럼 정점이 완만한 유행은 못 맞힌다. 급등 자체(두바이 초콜릿 274배)는 어떤 모델도 예측하지 못하며, 이 모델의 역할은 "지금 들어가면 6개월 뒤 남아 있나"이지 "무엇이 뜰까"가 아니다. 무엇이 뜰지는 후보 생성기가 맡는다.</div>
+  </div>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const D=JSON.parse(document.getElementById('data').textContent);
+const M=D.meta; const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const SIGC={green:'var(--sig-green)',amber:'var(--sig-amber)',red:'var(--sig-red)'};
+const sigOf=p=>p>=M.green_min?'green':p<M.red_max?'red':'amber';
+document.getElementById('sub').textContent=`Google TimesFM 2.5 (2억 파라미터, 사전학습 시계열 모델, 추가 학습 없음) · 라벨 14개 + 비빔밥 곡선 · 4주 간격 rolling origin ${M.n}개 시점 · 예측 지평 ${M.horizon}주 · 유지 기준 현재의 ${M.keep_frac*100}% · 미래 정보 없음`;
+// tiles
+const bs=Object.fromEntries(D.by_signal.map(s=>[s.signal,s]));
+[[M.auc,'','AUC (규칙 단계 '+M.auc_rule+')',''],[Math.round(bs.green.actual_keep*100),'%',`초록 판정 ${bs.green.n}건 중 실제 유지`,'green'],[Math.round(bs.amber.actual_keep*100),'%',`노랑 판정 ${bs.amber.n}건 중 실제 유지`,'amber'],[Math.round((1-bs.red.actual_keep)*100),'%',`빨강 판정 ${bs.red.n}건 중 실제 하락`,'red'],[Math.round(M.keep_rate*100),'%','표본 전체의 실제 유지 비율','']]
+ .forEach(([v,u,l,c])=>{const t=el('div','tile '+c);t.innerHTML=`<div class="v">${v}<small>${u}</small></div><div class="l">${l}</div>`;document.getElementById('tiles').append(t);});
+// by signal bars
+{const W=460,H=150,ns='http://www.w3.org/2000/svg';const s=document.createElementNS(ns,'svg');s.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ const g=(t,a,txt)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e;};
+ D.by_signal.forEach((r,i)=>{const y=14+i*44,bw=(W-170)*r.actual_keep;
+  s.append(g('text',{x:0,y:y+18,'font-size':13,fill:'var(--ink)','font-weight':600},{green:'초록 ≥0.9',amber:'노랑',red:'빨강 <0.5'}[r.signal]));
+  s.append(g('rect',{x:90,y:y,width:W-170,height:26,rx:4,fill:'var(--surface-2)'}));
+  s.append(g('rect',{x:90,y:y,width:bw,height:26,rx:4,fill:SIGC[r.signal]}));
+  s.append(g('text',{x:96+bw,y:y+18,'font-size':12,fill:'var(--ink-2)'},`${Math.round(r.actual_keep*100)}% 유지 · n=${r.n}`));});
+ const x70=90+(W-170)*0.7; s.append(g('line',{x1:x70,x2:x70,y1:6,y2:H-14,stroke:'var(--ink-3)','stroke-dasharray':'3 3'})); s.append(g('text',{x:x70+4,y:H-2,'font-size':11,fill:'var(--ink-3)'},'표본 평균 90%는 오른쪽'));
+ document.getElementById('bysig').append(s);}
+// calibration
+{const W=460,H=300,m={t:12,r:12,b:34,l:40},ns='http://www.w3.org/2000/svg';const s=document.createElementNS(ns,'svg');s.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ const g=(t,a,txt)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e;};
+ const xs=v=>m.l+v*(W-m.l-m.r), ys=v=>m.t+(1-v)*(H-m.t-m.b);
+ for(let k=0;k<=4;k++){const v=k/4;s.append(g('line',{x1:m.l,x2:W-m.r,y1:ys(v),y2:ys(v),stroke:'var(--line-soft)'}));s.append(g('text',{x:m.l-6,y:ys(v)+4,'text-anchor':'end','font-size':11,fill:'var(--ink-3)'},v.toFixed(2)));s.append(g('text',{x:xs(v),y:H-m.b+16,'text-anchor':'middle','font-size':11,fill:'var(--ink-3)'},v.toFixed(2)));}
+ s.append(g('line',{x1:xs(0),y1:ys(0),x2:xs(1),y2:ys(1),stroke:'var(--ink-3)','stroke-dasharray':'4 4'}));
+ s.append(g('text',{x:xs(.55),y:ys(.5)+14,'font-size':11,fill:'var(--ink-3)'},'완벽 보정선'));
+ D.calibration.forEach(c=>{const r=4+Math.sqrt(c.n)/2;s.append(g('circle',{cx:xs(c.mean_p),cy:ys(c.actual),r,fill:SIGC[sigOf(c.mean_p)],stroke:'var(--surface)','stroke-width':2}));
+  s.append(g('text',{x:xs(c.mean_p)+(c.mean_p>.8?-r-4:r+4),y:ys(c.actual)+4,'text-anchor':c.mean_p>.8?'end':'start','font-size':11,fill:'var(--ink-2)'},`n=${c.n}`));});
+ s.append(g('text',{x:W/2,y:H-4,'text-anchor':'middle','font-size':12,fill:'var(--ink-2)'},'모델이 말한 유지 확률'));
+ s.append(g('text',{x:12,y:m.t+8,'font-size':12,fill:'var(--ink-2)',transform:`rotate(-90 12 ${m.t+8})`,'text-anchor':'end'},'실제 유지율'));
+ document.getElementById('calib').append(s);}
+// examples (fan charts)
+function fanChart(ex,name){const W=520,H=230,m={t:14,r:12,b:26,l:40},ns='http://www.w3.org/2000/svg';const s=document.createElementNS(ns,'svg');s.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ const g=(t,a,txt)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e;};
+ const n=ex.weeks.length; let max=Math.max(...ex.values); ex.forecasts.forEach(f=>{max=Math.max(max,...f.q90.slice(0,26));}); max*=1.05;
+ const xs=i=>m.l+i/(n-1)*(W-m.l-m.r), ys=v=>m.t+(1-v/max)*(H-m.t-m.b);
+ for(let k=0;k<=3;k++){const v=max*k/3;s.append(g('line',{x1:m.l,x2:W-m.r,y1:ys(v),y2:ys(v),stroke:'var(--line-soft)'}));s.append(g('text',{x:m.l-5,y:ys(v)+4,'text-anchor':'end','font-size':10,fill:'var(--ink-3)'},(v*100).toFixed(v*100<1?2:1)));}
+ ex.weeks.forEach((w,i)=>{if(i%26===0){s.append(g('text',{x:xs(i),y:H-m.b+14,'font-size':10,fill:'var(--ink-3)','text-anchor':'middle'},w.slice(0,7)));}});
+ ex.forecasts.forEach(f=>{const o=f.origin_idx-ex.offset; if(o<0||o>=n) return; const col=SIGC[sigOf(f.p_keep)];
+  const idx=[];for(let h=0;h<26;h++){if(o+1+h<n+26)idx.push(h);}
+  const xf=h=>m.l+(o+1+h)/(n-1)*(W-m.l-m.r);
+  const up=idx.map(h=>`${xf(h).toFixed(1)} ${ys(Math.min(f.q90[h],max)).toFixed(1)}`).join(' L ');const dn=idx.slice().reverse().map(h=>`${xf(h).toFixed(1)} ${ys(f.q10[h]).toFixed(1)}`).join(' L ');
+  s.append(g('path',{d:`M ${up} L ${dn} Z`,fill:col,opacity:.22}));
+  s.append(g('path',{d:'M '+idx.map(h=>`${xf(h).toFixed(1)} ${ys(Math.min(f.median[h],max)).toFixed(1)}`).join(' L '),fill:'none',stroke:col,'stroke-width':1.5,'stroke-dasharray':'4 3'}));
+  s.append(g('line',{x1:xs(o),x2:xs(o),y1:m.t,y2:H-m.b,stroke:col,'stroke-dasharray':'2 3'}));
+  const lab=`${Math.round(f.p_keep*100)}%→${f.actual_ratio==null?'?':f.actual_ratio>9?'급등':Math.round(f.actual_ratio*100)+'%'}`;
+  s.append(g('text',{x:xs(o)+3,y:m.t+10+(ex.forecasts.indexOf(f)%2)*12,'font-size':10,fill:col,'font-weight':700},lab));});
+ s.append(g('path',{d:'M '+ex.values.map((v,i)=>`${xs(i).toFixed(1)} ${ys(v).toFixed(1)}`).join(' L '),fill:'none',stroke:'var(--accent)','stroke-width':2}));
+ const p=ex.peak_idx-ex.offset; if(p>=0&&p<n) s.append(g('circle',{cx:xs(p),cy:ys(ex.values[p]),r:4,fill:'var(--accent)',stroke:'var(--surface)','stroke-width':2}));
+ return s;}
+const EXDESC={"탕후루":"정점 12주 전에 16%라고 비관(실제 137%로 상승). 정점 4주 전 61%(노랑), 정점 후엔 17%로 정확.","두바이 초콜릿":"급등 전 21%: 274배 폭발은 예측 불가. 정점 이후는 5%로 정확.","크로플":"정점 전 96% 정확, 정점 직후 55%(노랑)로 애매, 4개월 뒤 82%인데 실제 47%로 빗나감.","소금빵":"완만한 유행. 내내 68~85%(노랑)이고 실제도 70~103%로 경계 위. 판정 보류가 맞는 사례.","김밥":"안정 품목. 95% 이상으로 일관, 실제 84~111%.","치킨":"안정 품목. 96%로 일관, 실제 85~101%."};
+Object.entries(D.examples).forEach(([kw,ex])=>{const c=el('div','cell');c.innerHTML=`<div class="t"><span>${kw}</span><small>${ex.weeks[0].slice(0,7)} ~ ${ex.weeks[ex.weeks.length-1].slice(0,7)}</small></div>`;c.append(fanChart(ex,kw));c.append(el('div','small muted',EXDESC[kw]||''));document.getElementById('examples').append(c);});
+// timelines
+function tlChart(t){const W=320,H=120,m={t:8,r:6,b:18,l:30},ns='http://www.w3.org/2000/svg';const s=document.createElementNS(ns,'svg');s.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ const g=(a,b,txt)=>{const e=document.createElementNS(ns,a);for(const k in b)e.setAttribute(k,b[k]);if(txt!=null)e.textContent=txt;return e;};
+ const n=t.weeks.length; const xs=i=>m.l+i/(n-1)*(W-m.l-m.r), ys=v=>m.t+(1-v)*(H-m.t-m.b);
+ t.actual_keep.forEach((k,i)=>{if(!k){const x0=i?(xs(i-1)+xs(i))/2:xs(i), x1=i<n-1?(xs(i)+xs(i+1))/2:xs(i);s.append(g('rect',{x:x0,y:m.t,width:Math.max(1,x1-x0),height:H-m.t-m.b,fill:'var(--sig-red)',opacity:.18}));}});
+ [0,.5,.9,1].forEach(v=>{s.append(g('line',{x1:m.l,x2:W-m.r,y1:ys(v),y2:ys(v),stroke:'var(--line-soft)'}));s.append(g('text',{x:m.l-4,y:ys(v)+3,'text-anchor':'end','font-size':9,fill:'var(--ink-3)'},v));});
+ s.append(g('path',{d:'M '+t.p_keep.map((p,i)=>`${xs(i).toFixed(1)} ${ys(p).toFixed(1)}`).join(' L '),fill:'none',stroke:'var(--accent)','stroke-width':1.8}));
+ t.weeks.forEach((w,i)=>{if(w.slice(5,7)==='01'&&w.slice(8,10)<'29'&&(i===0||t.weeks[i-1].slice(0,4)!==w.slice(0,4))) s.append(g('text',{x:xs(i),y:H-4,'font-size':9,fill:'var(--ink-3)','text-anchor':'middle'},w.slice(0,4)));});
+ return s;}
+const order=[...D.keywords.filter(k=>k.polarity==='positive'),...D.keywords.filter(k=>k.polarity==='demo'),...D.keywords.filter(k=>k.polarity==='negative')];
+order.forEach(k=>{const t=D.timelines[k.keyword]; if(!t||t.weeks.length<3) return; const c=el('div','cell');c.innerHTML=`<div class="t"><span>${k.keyword} <span class="tag ${k.polarity==='positive'?'pos':''}">${k.polarity==='positive'?'유행':k.polarity==='demo'?'데모':'안정'}</span></span><small>AUC ${k.auc==null?'–':k.auc}</small></div>`;c.append(tlChart(t));document.getElementById('timelines').append(c);});
+// table
+const tb=document.getElementById('kwtable');tb.innerHTML='<tr><th>키워드</th><th>구분</th><th class="n">시점</th><th class="n">실제 유지율</th><th class="n">AUC TimesFM</th><th class="n">AUC 규칙</th><th class="n">비율 오차</th><th class="n">naive 오차</th></tr>'+order.map(k=>`<tr><td>${k.keyword}</td><td>${k.polarity==='positive'?'유행':k.polarity==='demo'?'데모':'안정'}</td><td class="n">${k.n}</td><td class="n">${k.keep_rate}</td><td class="n">${k.auc==null?'–':k.auc}</td><td class="n">${k.auc_rule==null?'–':k.auc_rule}</td><td class="n">${k.err_fm}</td><td class="n">${k.err_naive}</td></tr>`).join('');
+</script>

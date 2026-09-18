@@ -1,0 +1,21 @@
+{
+  "n": 1745,
+  "max_decimals": 5,
+  "min_decimals": 0,
+  "unique_decimals": [
+    0,
+    2,
+    3,
+    4,
+    5
+  ],
+  "sample": [
+    93.9888,
+    94.68908,
+    95.16619,
+    96.27161,
+    95.32409
+  ],
+  "context": "synthetic",
+  "recorded_at": "2026-09-12T21:17:40"
+}

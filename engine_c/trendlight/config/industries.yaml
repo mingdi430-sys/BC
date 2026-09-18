@@ -1,0 +1,145 @@
+# BC카드 CSV의 11개 업종 (TP_BUZ_NM, 공백 제거 기준) 전부.
+# 각 업종:
+#   code        : TP_BUZ_NO
+#   group       : retail(유통) | dining(외식)
+#   queries     : 후보 생성용 일반 쿼리 (YouTube search.list q). 라벨 키워드는 절대 넣지 않는다.
+#       2026-09-15 정교화: 12주 실측에서 주당 10건 미만(상한 50)이던 9개 + 잡음 채널 유입 1개, 총 10개를 교체. 세 단어 조합은 좁고, 표기는 흔한 쪽("횟집")을 쓴다.
+#       교체 전 → 후: 동네마트 꿀템→마트 꿀템, 중국집 유행 메뉴→중국집 신메뉴, 요즘 뜨는 중식→중식당 추천, 한정식 코스 유행→한식 코스요리,
+#                    일식 신메뉴→일식당 추천, 회집 유행→횟집 추천, 일식 맛집 신상→초밥집 추천(카지노·여행 채널 32건 유입), 요즘 뜨는 일식→일식 먹방, 갈비 맛집 유행→고기집 추천, 분식집 유행→분식 먹방
+#   age_hypothesis : 핵심 세대 가설. 카드 데이터 AGE_CD·GENDER_CD 조합.
+#       AGE_CD: 1=20대 이하, 2=20대, 3=30대, 4=40대, 5=50대, 6=60대 이상, x=연령 미상 (팀 signal/README 코드북 기준)
+#       GENDER_CD: 1=남성, 2=여성, 3=외국인(성별 미제공), x=성별 미상 (팀 signal/README 코드북 기준)
+#   suffix_rules: 후보 명사구 → 데이터랩 검색어 변환 규칙.
+#       외식(dining)은 메뉴명 그대로, 유통(retail)은 아이템명 + 채널 접미어 조합을 함께 조회.
+#   anchor      : 2단 앵커용 업종 앵커 키워드 (anchors.yaml 참조)
+
+default_suffix_rules:
+  dining:
+    # 메뉴명 그대로. 접미어 없음. 필요 시 "{item} 맛집" 변형은 옵션.
+    variants: ["{item}"]
+  retail:
+    variants: ["{item}", "{item} 편의점", "{item} 코스트코"]
+
+industries:
+  대형할인점:
+    code: 4004
+    group: retail
+    anchor: 코스트코
+    queries: ["코스트코 신상", "이마트 추천템", "트레이더스 신상", "대형마트 꿀템", "홈플러스 신상"]
+    age_hypothesis:
+      - {AGE_CD: ["3", "4"], GENDER_CD: ["2"], note: "30~40대 여성 장보기 주도"}
+    suffix_rules:
+      variants: ["{item}", "{item} 코스트코", "{item} 이마트"]
+
+  편의점:
+    code: 4010
+    group: retail
+    anchor: 편의점
+    queries: ["편의점 신상", "편의점 디저트", "편의점 꿀조합", "편의점 신제품 리뷰", "편의점 추천"]
+    age_hypothesis:
+      - {AGE_CD: ["1", "2"], GENDER_CD: ["1", "2"], note: "10~20대 남녀, 신상 소비 최전선"}
+    suffix_rules:
+      variants: ["{item}", "{item} 편의점"]
+
+  슈퍼마켓:
+    code: 4020
+    group: retail
+    anchor: 마트
+    queries: ["마트 신상", "마트 추천 간식", "마트 꿀템", "마트 장보기 추천"]
+    age_hypothesis:
+      - {AGE_CD: ["4", "5"], GENDER_CD: ["2"], note: "40~50대 여성 일상 장보기"}
+    suffix_rules:
+      variants: ["{item}", "{item} 마트"]
+
+  일반한식:
+    code: 8001
+    group: dining
+    anchor: 맛집
+    queries: ["한식 신메뉴", "요즘 뜨는 한식", "한식 맛집 유행", "한식 먹방 신상"]
+    age_hypothesis:
+      - {AGE_CD: ["3", "4"], GENDER_CD: ["1", "2"], note: "30~40대 직장인 점심 수요"}
+    suffix_rules:
+      variants: ["{item}"]
+
+  갈비전문점:
+    code: 8002
+    group: dining
+    anchor: 고기집
+    queries: ["고기집 추천", "고기집 신메뉴", "갈비 먹방", "요즘 뜨는 고기집"]
+    age_hypothesis:
+      - {AGE_CD: ["4", "5"], GENDER_CD: ["1"], note: "40~50대 남성 회식·가족외식"}
+    suffix_rules:
+      variants: ["{item}"]
+
+  한정식:
+    code: 8003
+    group: dining
+    anchor: 한정식
+    queries: ["한정식 맛집", "한식 코스요리", "한상차림 맛집", "한식 파인다이닝"]
+    age_hypothesis:
+      - {AGE_CD: ["5", "6"], GENDER_CD: ["1", "2"], note: "50~60대 모임·접대"}
+    suffix_rules:
+      variants: ["{item}"]
+
+  일식회집:
+    code: 8004
+    group: dining
+    anchor: 스시
+    queries: ["일식당 추천", "일식 먹방", "횟집 추천", "초밥집 추천", "초밥 유행"]
+    age_hypothesis:
+      - {AGE_CD: ["2", "3"], GENDER_CD: ["1", "2"], note: "20~30대 고급 외식 경험 소비"}
+    suffix_rules:
+      variants: ["{item}"]
+
+  중국음식:
+    code: 8005
+    group: dining
+    anchor: 중식
+    queries: ["중식 신메뉴", "중식당 추천", "중국집 신메뉴", "중화요리 먹방"]
+    age_hypothesis:
+      - {AGE_CD: ["2", "3"], GENDER_CD: ["1", "2"], note: "20~30대 배달·매운맛 트렌드"}
+    suffix_rules:
+      variants: ["{item}"]
+
+  서양음식:
+    code: 8006
+    group: dining
+    anchor: 파스타
+    queries: ["양식 신메뉴", "요즘 뜨는 양식", "브런치 유행", "파스타 맛집 신상", "양식 먹방"]
+    age_hypothesis:
+      - {AGE_CD: ["2", "3"], GENDER_CD: ["2"], note: "20~30대 여성 브런치·데이트"}
+    suffix_rules:
+      variants: ["{item}"]
+
+  스넥:
+    code: 8021
+    group: dining
+    anchor: 분식
+    queries: ["분식 신메뉴", "요즘 뜨는 간식", "길거리 음식 유행", "간식 먹방 신상", "분식 먹방"]
+    age_hypothesis:
+      - {AGE_CD: ["1", "2"], GENDER_CD: ["1", "2"], note: "10~20대 간식·길거리 음식"}
+    suffix_rules:
+      variants: ["{item}"]
+
+  제과점:
+    code: 8301
+    group: dining
+    anchor: 빵집
+    queries: ["빵집 신상", "요즘 뜨는 디저트", "베이커리 유행", "디저트 신상 먹방", "카페 디저트 유행"]
+    age_hypothesis:
+      - {AGE_CD: ["2", "3"], GENDER_CD: ["2"], note: "20~30대 여성 디저트 소비"}
+    suffix_rules:
+      variants: ["{item}"]
+
+# 카드 AGE_CD → 네이버 데이터랩 ages 코드 매핑
+# 데이터랩 ages: 1=0~12, 2=13~18, 3=19~24, 4=25~29, 5=30~34, 6=35~39, 7=40~44, 8=45~49, 9=50~54, 10=55~59, 11=60+
+age_map_card_to_datalab:
+  "1": ["2", "3"]        # 20대 미만(10대 후반 위주)
+  "2": ["3", "4"]        # 20대
+  "3": ["5", "6"]        # 30대
+  "4": ["7", "8"]        # 40대
+  "5": ["9", "10"]       # 50대
+  "6": ["11"]            # 60대 이상
+gender_map_card_to_datalab:
+  "1": "m"
+  "2": "f"
