@@ -3,6 +3,77 @@
 비씨카드 소비데이터 공모전 MVP의 엔진 C. 모집단(YouTube·빅카인즈)에서 급등 후보를 **자동으로** 뽑고,
 네이버 검색어 트렌드(NAVER API HUB)는 **곡선 조회에만** 쓴다. 라벨(labels.yaml)은 검증에만 쓰고 후보 생성에는 넣지 않는다.
 
+---
+
+## 팀 공유 현황 (2026-09-18 기준)
+
+### 1. 데이터가 어디까지 있나
+
+| 데이터 | 상태 | 파일 |
+|---|---|---|
+| YouTube 검색 결과 | 업종 11 × 쿼리 50, 2026-03-23 ~ 09-07 **25주**, 영상 47,021건 (태스크 1,200 / 목표 2,000) | `data/processed/youtube_docs.parquet` |
+| 명사구 주간 빈도 | 제목만, 채널당 1회, 한글 필수, 지명·일반명사·해외 영상 제외 | `data/processed/youtube_weekly.parquet` |
+| 급등 후보 | **125개** (업종당 7~16). 두쫀쿠가 제과점에서 자동으로 잡힘 | `data/processed/candidates.parquet` |
+| 네이버 검색 곡선 | **90개 키워드** × 9세그먼트(전체·성별·연령6) × 2020~2026 주간, 233,755행. 키워드 = 검증용 라벨 14 + 지역 조합 70 + 비빔밥 6 | `data/processed/curves.parquet` |
+| 일간 곡선 | 반감기 라벨 4개 | `data/processed/curves_daily.parquet` |
+| 네이버 원본 응답 | 506건 (재호출 불필요, 캐시) | `data/cache/datalab/` |
+| 빅카인즈 | 없음 (파서만 있음, 엑셀 넣으면 동작) | `data/raw/bigkinds/` |
+
+- **후보 125개의 검색 곡선은 아직 없다.** 후보가 매일 바뀌어서 9/20 수집 마감 후 한 번에 받는다(네이버 하루치). 그 전까지 모델 실험은 위 90개 곡선(실질적으로 라벨 14 + 비빔밥)으로 한다.
+- YouTube는 cron으로 매일 16:30 KST 자동 수집(키 3개 × 100회). 9/20이면 40주 범위가 끝난다.
+- 라벨 14개 = 유행 7(크로플·탕후루·두바이 초콜릿·두쫀쿠·마라탕·오마카세·소금빵) + 안정 7(김밥·떡볶이·치킨·삼겹살·짜장면·라면·우유). **검증 전용**이며 후보 생성에는 절대 쓰지 않는다.
+
+### 2. 어떤 모델·방법을 해봤나
+
+| 구분 | 방법 | 결과 | 비고 |
+|---|---|---|---|
+| 후보 생성 | 명사구 주간 빈도, 직전 8주 z-score ≥3 또는 ×3 | 라벨 유행 7개 중 1개(두쫀쿠) 자동 포착. 나머지 6개는 수집 범위(40주) 밖 | `candidates/burst.py` |
+| 단계 판정 | 규칙: 최근 4주 성장률·가속·최고치 대비 수준·t-통계량 → 태동/급등/정점/하락/안정, 롤링(미래 정보 없음) | 안정 7개 surging 오판 0. 하락 판정은 정점 뒤 6~27주로 느림 | `lifecycle/stage.py` |
+| 반감기 | 정점 → 50% 도달 일수. 주간 원본 / 스플라인 / 일간 원본 / 일간 7일 이동평균 비교 | **일간 + 7일 이동평균이 코리아헤럴드 수치와 MAE 2.5일** (주간 13.5일) | `lifecycle/halflife.py` |
+| 6개월 예측 | **TimesFM 2.5 (200M, zero-shot, 추가 학습 없음)** 26주 분위수 예측 → P(26주 뒤 ≥ 현재의 70%) | 4주 간격 rolling origin 1,033시점 **AUC 0.855** (규칙 단계 0.486). 초록(P≥0.9) 693건 중 실제 유지 98%. 빨강(P<0.5) 64건은 실제 하락 48% | `lifecycle/forecast.py`, 보고서 `ui/timesfm-report.html` |
+
+TimesFM의 약점: 급등 직전에 "곧 꺼진다"고 비관(탕후루 정점 12주 전 P=0.16, 실제 +37%), 완만한 유행(크로플 AUC 0.53, 소금빵 0.57)에 약함. 표본의 90%가 "유지"라 안정 품목이 성적을 올린다. 확률 보정(isotonic)은 표본이 곡선 14개뿐이라 보류.
+
+안 해본 것: 학습 모델(GBM/로지스틱) — 곡선이 200개 이상 모이면 TimesFM 확률 + 규칙 특징을 입력으로 보정 모델을 얹는 것이 v2 계획. LLM으로 후보에서 "아이템이 아닌 말" 거르기 — API 키 없어 미적용.
+
+### 3. 앞으로 실험할 때 코드 짜는 방식
+
+**공통 잣대**: 주 t까지의 곡선만 보고 "26주 뒤 검색량이 지금(최근 4주 평균)의 70% 이상인가"를 맞힌다. 4주 간격 rolling origin, 최소 문맥 26주, 지표는 AUC. 이 잣대를 바꾸지 않아야 서로 비교가 된다.
+
+**모델 교체 (가장 쉬운 길)** — `examples/backtest_template.py`
+
+```python
+def predict(history: np.ndarray) -> float:   # history: 오래된→최근, value_norm×100
+    ...                                      # 0~1 유지 확률을 돌려준다
+    return p
+```
+이 함수만 바꾸고 `python examples/backtest_template.py` 를 돌리면 TimesFM과 같은 표에 AUC가 찍힌다. 학습이 필요한 모델이면 `backtest()` 안에서 origin 이전 데이터로만 fit 하고(누수 금지) origin마다 predict 한다.
+
+**TimesFM 자체를 바꾸기** — `trendlight/lifecycle/forecast.py`
+- `keep_probability(q, base)`: 분위수 → 확률 매핑. 지금은 분위수 선형보간. 여기가 보정/임계값 실험 지점.
+- `GREEN_MIN / RED_MAX`: 신호등 임계값(0.9 / 0.5).
+- `backtest_all(curves)`: 라벨 백테스트. 다른 파운데이션 모델(Chronos, Moirai 등)을 붙이려면 `forecast_batch()`와 같은 (point, quantiles) 반환 형태로 맞추면 나머지는 그대로 돈다.
+
+**후보 생성 실험** — `trendlight/candidates/burst.py`
+- `detect_bursts(weekly, baseline_weeks, z_thresh, ratio_thresh, min_count)`: 입력은 `youtube_weekly.parquet`. 파라미터만 바꿔도 되고 함수를 갈아끼워도 된다. 결과는 `python -m trendlight report` 의 (a)절(라벨 7개 포착 여부)로 평가한다.
+- 명사구 추출·불용어는 `candidates/phrases.py`.
+
+**단계 규칙 실험** — `trendlight/lifecycle/stage.py`
+- `features_at(values, t)` 는 `values[:t+1]` 만 쓴다. `classify(f)` 규칙을 바꾼 뒤 `pytest tests/test_stage.py` 로 누수 검사를 통과해야 한다.
+
+**규칙 세 가지**
+1. 라벨 키워드를 후보 생성(쿼리·필터·불용어)에 넣지 않는다.
+2. origin 이후 데이터를 특징이나 학습에 쓰지 않는다.
+3. 결과는 `reports/stage1_eval.md` 형식(a~e)으로 같이 낸다. `python -m trendlight report` 가 만든다.
+
+### 4. 일정
+
+- 9/20 YouTube 40주 수집 마감 → `burst` → `collect`(후보 곡선 약 200개, 네이버 하루치) → `forecast` → `report`
+- 9/21 UI 데이터 교체, 9/22 제출
+
+---
+
+
 ## 설치
 
 ```bash
