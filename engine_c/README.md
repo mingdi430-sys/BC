@@ -1,4 +1,4 @@
-# 유행 신호등 — 엔진 C(유행 수명주기) 데이터 파이프라인 1단계
+# 유행 신호등 엔진 C(유행 수명주기) 데이터 파이프라인 1단계
 
 비씨카드 소비데이터 공모전 MVP의 엔진 C. 모집단(YouTube·빅카인즈)에서 급등 후보를 **자동으로** 뽑고,
 네이버 검색어 트렌드(NAVER API HUB)는 **곡선 조회에만** 쓴다. 라벨(labels.yaml)은 검증에만 쓰고 후보 생성에는 넣지 않는다.
@@ -34,13 +34,13 @@
 
 TimesFM의 약점: 급등 직전에 "곧 꺼진다"고 비관(탕후루 정점 12주 전 P=0.16, 실제 +37%), 완만한 유행(크로플 AUC 0.53, 소금빵 0.57)에 약함. 표본의 90%가 "유지"라 안정 품목이 성적을 올린다. 확률 보정(isotonic)은 표본이 곡선 14개뿐이라 보류.
 
-안 해본 것: 학습 모델(GBM/로지스틱) — 곡선이 200개 이상 모이면 TimesFM 확률 + 규칙 특징을 입력으로 보정 모델을 얹는 것이 v2 계획. LLM으로 후보에서 "아이템이 아닌 말" 거르기 — API 키 없어 미적용.
+안 해본 것: 학습 모델(GBM/로지스틱). 곡선이 200개 이상 모이면 TimesFM 확률 + 규칙 특징을 입력으로 보정 모델을 얹는 것이 v2 계획. LLM으로 후보에서 "아이템이 아닌 말" 거르기 API 키 없어 미적용.
 
 ### 3. 앞으로 실험할 때 코드 짜는 방식
 
 **공통 잣대**: 주 t까지의 곡선만 보고 "26주 뒤 검색량이 지금(최근 4주 평균)의 70% 이상인가"를 맞힌다. 4주 간격 rolling origin, 최소 문맥 26주, 지표는 AUC. 이 잣대를 바꾸지 않아야 서로 비교가 된다.
 
-**모델 교체 (가장 쉬운 길)** — `examples/backtest_template.py`
+**모델 교체 (가장 쉬운 길)**: `examples/backtest_template.py`
 
 ```python
 def predict(history: np.ndarray) -> float:   # history: 오래된→최근, value_norm×100
@@ -49,16 +49,16 @@ def predict(history: np.ndarray) -> float:   # history: 오래된→최근, valu
 ```
 이 함수만 바꾸고 `python examples/backtest_template.py` 를 돌리면 TimesFM과 같은 표에 AUC가 찍힌다. 학습이 필요한 모델이면 `backtest()` 안에서 origin 이전 데이터로만 fit 하고(누수 금지) origin마다 predict 한다.
 
-**TimesFM 자체를 바꾸기** — `trendlight/lifecycle/forecast.py`
+**TimesFM 자체를 바꾸기**: `trendlight/lifecycle/forecast.py`
 - `keep_probability(q, base)`: 분위수 → 확률 매핑. 지금은 분위수 선형보간. 여기가 보정/임계값 실험 지점.
 - `GREEN_MIN / RED_MAX`: 신호등 임계값(0.9 / 0.5).
 - `backtest_all(curves)`: 라벨 백테스트. 다른 파운데이션 모델(Chronos, Moirai 등)을 붙이려면 `forecast_batch()`와 같은 (point, quantiles) 반환 형태로 맞추면 나머지는 그대로 돈다.
 
-**후보 생성 실험** — `trendlight/candidates/burst.py`
+**후보 생성 실험**: `trendlight/candidates/burst.py`
 - `detect_bursts(weekly, baseline_weeks, z_thresh, ratio_thresh, min_count)`: 입력은 `youtube_weekly.parquet`. 파라미터만 바꿔도 되고 함수를 갈아끼워도 된다. 결과는 `python -m trendlight report` 의 (a)절(라벨 7개 포착 여부)로 평가한다.
 - 명사구 추출·불용어는 `candidates/phrases.py`.
 
-**단계 규칙 실험** — `trendlight/lifecycle/stage.py`
+**단계 규칙 실험**: `trendlight/lifecycle/stage.py`
 - `features_at(values, t)` 는 `values[:t+1]` 만 쓴다. `classify(f)` 규칙을 바꾼 뒤 `pytest tests/test_stage.py` 로 누수 검사를 통과해야 한다.
 
 **규칙 세 가지**
