@@ -2375,3 +2375,9 @@ footer .signal-mark i {
 .tc-cell-t small { font-weight: 400; color: #7e8ea8; }
 .lifecycle-note { display: block; margin-top: 8px; font-size: 11px; color: #7e8ea8; }
 @media (max-width: 720px) { .trend-verdict { flex-direction: column; align-items: flex-start; } .signal-lamp { display: flex; } }
+
+/* 챗봇: 근거 SQL */
+.chat-sql { margin-top: 8px; font-size: 11px; }
+.chat-sql summary { cursor: pointer; color: #6b7e9b; }
+.chat-sql pre { white-space: pre-wrap; word-break: break-all; background: #eef2f8; border-radius: 6px; padding: 6px 8px; margin: 4px 0; font-size: 10.5px; line-height: 1.4; }
+.chat-sql small { color: #7e8ea8; }

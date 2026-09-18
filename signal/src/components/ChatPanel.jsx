@@ -9,7 +9,7 @@ import {
   resolveRegion,
 } from "../data";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_CHAT_API || "http://localhost:8010";
 
 export function ChatPanel({
   industry,
@@ -110,7 +110,7 @@ export function ChatPanel({
       const data = await res.json();
       applyActions(data.actions);
       setConfigured(data.configured);
-      setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+      setMessages((m) => [...m, { role: "assistant", content: data.reply, queries: data.queries || [] }]);
     } catch {
       setMessages((m) => [
         ...m,
@@ -130,12 +130,25 @@ export function ChatPanel({
       <div className="chat-messages">
         {messages.length === 0 && (
           <p className="chat-empty">
-            지역이나 업종에 대해 물어보거나, "강릉시 갈비전문점 보여줘"처럼 요청해보세요.
+            카드 데이터에 대해 물어보세요. 예: "성북구와 성동구 중 여성 결제 비율이 높은 곳은?", "서울에서 20대 비중이 높은 구 3개",
+            "강릉시 갈비전문점 보여줘". 예측·추천·원인 분석은 답하지 않아요.
           </p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`chat-bubble ${m.role}`}>
             {m.content}
+            {m.queries?.length > 0 && (
+              <details className="chat-sql">
+                <summary>근거 SQL {m.queries.length}건</summary>
+                {m.queries.map((q, j) => (
+                  <div key={j}>
+                    {q.purpose && <small>{q.purpose}</small>}
+                    <pre>{q.sql}</pre>
+                    <small>{q.error ? `오류: ${q.error}` : `${q.rows}행`}</small>
+                  </div>
+                ))}
+              </details>
+            )}
           </div>
         ))}
         {loading && <div className="chat-bubble assistant chat-loading">…</div>}

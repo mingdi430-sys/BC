@@ -15,8 +15,19 @@ load_dotenv(Path(__file__).parent / ".env")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("signal.chat")
 
+# 제공자: OPENAI_API_KEY 가 있으면 OpenAI(gpt-5-mini, SQL 질의 도구 포함), 아니면 Anthropic(화면 조작만)
 _API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 _client = anthropic.Anthropic(api_key=_API_KEY) if _API_KEY else None
+_OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
+_openai = None
+_store = None
+if _OPENAI_KEY:
+    from openai import OpenAI
+    from llm_openai import call_openai
+    from sqlstore import CardStore
+    _openai = OpenAI(api_key=_OPENAI_KEY, base_url=os.environ.get("LLM_BASE_URL") or None)
+    _store = CardStore()
+    logger.info("OpenAI 제공자 사용, card 테이블 %d행", _store.rows)
 
 app = FastAPI(title="signal-chat")
 app.add_middleware(
@@ -28,6 +39,8 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://localhost:4173",
         "http://127.0.0.1:4173",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
@@ -60,15 +73,26 @@ class ChatResponse(BaseModel):
     reply: str
     actions: list[dict]
     configured: bool
+    queries: list[dict] = []   # 실행한 SQL (투명성 표시용)
+    provider: str = ""
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "configured": _client is not None}
+    return {"status": "ok", "configured": _client is not None or _openai is not None,
+            "provider": "openai" if _openai else ("anthropic" if _client else None)}
 
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
+    if _openai is not None:
+        try:
+            history = [m.model_dump() for m in req.history]
+            reply, actions, queries = call_openai(_openai, _store, req.message, history, req.screen.model_dump())
+            return ChatResponse(reply=reply, actions=actions, configured=True, queries=queries, provider="openai")
+        except Exception:  # noqa: BLE001
+            logger.exception("openai error")
+            return ChatResponse(reply="답변을 만드는 중 오류가 발생했어요. 다시 시도해주세요.", actions=[], configured=True, provider="openai")
     if _client is None:
         return ChatResponse(
             reply="채팅 기능이 아직 설정되지 않았어요. backend/.env에 ANTHROPIC_API_KEY를 추가하면 사용할 수 있어요.",

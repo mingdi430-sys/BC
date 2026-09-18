@@ -66,6 +66,12 @@ def predict(history: np.ndarray) -> float:   # history: 오래된→최근, valu
 2. origin 이후 데이터를 특징이나 학습에 쓰지 않는다.
 3. 결과는 `reports/stage1_eval.md` 형식(a~e)으로 같이 낸다. `python -m trendlight report` 가 만든다.
 
+### 3b. 폐점률(인허가 데이터) 준비 상태
+
+`trendlight/closures.py` 작성 완료. 입력 파일이 아직 없다. **이 서버에서는 localdata.go.kr 접속이 막혀 있어** PC에서 받아 `data/raw/localdata/`에 올려야 한다.
+받을 것: 지방행정인허가 데이터개방(localdata.go.kr) → 데이터받기 → 식품 → **일반음식점, 휴게음식점, 제과점** 각각 "전체 데이터"(CSV zip, 파일당 수백 MB).
+올린 뒤 `python -m trendlight.closures` 를 돌리면 상호에 아이템명이 든 매장의 월별 개업·폐업·영업중 수, 검색 정점→개업 정점→폐업 정점 시차, 개업 연도별 12개월 생존율이 `reports/closures.md`로 나온다.
+
 ### 4. 일정
 
 - 9/20 YouTube 40주 수집 마감 → `burst` → `collect`(후보 곡선 약 200개, 네이버 하루치) → `forecast` → `report`
