@@ -9,6 +9,8 @@
   hgb          : 같은 특징 → HistGradientBoosting
   timesfm      : TimesFM 분위수 → 유지 확률 (zero-shot, 학습 없음)
   stack        : TimesFM 확률 + 규칙 특징 → 로지스틱 회귀 (보정)
+  rf / xgb     : 같은 특징 → RandomForest / XGBoost
+  lstm         : 최근 52주 곡선(첫 값 기준 정규화)을 그대로 넣는 작은 LSTM (특징 공학 없음)
 
 실행: python examples/experiments.py   (TimesFM 백테스트 결과 timesfm_backtest.parquet 가 있어야 stack 가능)
 """
@@ -44,14 +46,17 @@ def make_samples(curves: pd.DataFrame) -> pd.DataFrame:
                 continue
             f = features_at(v, t)
             hist = v[: t + 1]
-            rows.append({"keyword": kw, "origin_week": weeks[t], "actual_keep": fut / basev >= KEEP_FRAC,
+            seq = hist[-52:] / (hist[-52:].mean() + 1e-9)
+            if len(seq) < 52:
+                seq = np.concatenate([np.full(52 - len(seq), seq[0]), seq])  # 앞쪽을 첫 값으로 채움
+            rows.append({"keyword": kw, "origin_week": weeks[t], "actual_keep": fut / basev >= KEEP_FRAC, "seq": seq.astype(np.float32),
                          "growth": f["growth"], "accel": f["accel"], "rel": f["rel"], "snr": f["snr"],
                          "vol12": float(np.std(np.diff(hist[-13:])) / (hist[-13:].mean() + 1e-9)),
                          "weeks_since_peak": float(t - int(np.argmax(hist))),
                          "log_level": float(np.log1p(basev)),
                          "naive_trend": float(1 / (1 + np.exp(-4 * (hist[-4:].mean() / (hist[-16:-4].mean() + 1e-9) - 0.9))))})
-    df = pd.DataFrame(rows).replace([np.inf, -np.inf], np.nan)
-    df[FEATS] = df[FEATS].fillna(0.0)
+    df = pd.DataFrame(rows)
+    df[FEATS] = df[FEATS].replace([np.inf, -np.inf], np.nan).fillna(0.0)
     return df
 
 
@@ -64,6 +69,50 @@ def loko(df: pd.DataFrame, make_model, feats: list[str]) -> np.ndarray:
             continue
         m = make_model().fit(df.loc[tr, feats].to_numpy(), df.loc[tr, "actual_keep"].to_numpy())
         pred[te.to_numpy()] = m.predict_proba(df.loc[te, feats].to_numpy())[:, 1]
+    return pred
+
+
+def loko_lstm(df: pd.DataFrame, epochs: int = 40) -> np.ndarray:
+    """최근 52주 시퀀스 → LSTM(32) → 유지 확률. 키워드 단위 leave-one-out."""
+    import torch, torch.nn as nn
+
+    class Adam:  # torch.optim 이 이 서버 파이썬 빌드(sys.get_int_max_str_digits 없음)에서 임포트되지 않아 직접 구현
+        def __init__(self, params, lr=3e-3, wd=1e-4, b1=0.9, b2=0.999, eps=1e-8):
+            self.p = list(params); self.lr, self.wd, self.b1, self.b2, self.eps = lr, wd, b1, b2, eps
+            self.m = [torch.zeros_like(x) for x in self.p]; self.v = [torch.zeros_like(x) for x in self.p]; self.t = 0
+        def zero_grad(self):
+            for x in self.p: x.grad = None
+        @torch.no_grad()
+        def step(self):
+            self.t += 1
+            for x, m, v in zip(self.p, self.m, self.v):
+                if x.grad is None: continue
+                g = x.grad + self.wd * x
+                m.mul_(self.b1).add_(g, alpha=1 - self.b1); v.mul_(self.b2).addcmul_(g, g, value=1 - self.b2)
+                mh = m / (1 - self.b1 ** self.t); vh = v / (1 - self.b2 ** self.t)
+                x.addcdiv_(mh, vh.sqrt() + self.eps, value=-self.lr)
+    torch.manual_seed(0)
+    X = torch.tensor(np.stack(df["seq"].to_numpy())).unsqueeze(-1)  # [n, 52, 1]
+    y = torch.tensor(df["actual_keep"].to_numpy(), dtype=torch.float32)
+    pred = np.full(len(df), np.nan)
+    for kw in df["keyword"].unique():
+        te = (df["keyword"] == kw).to_numpy(); tr = ~te
+        if df.loc[tr, "actual_keep"].nunique() < 2:
+            continue
+        lstm = nn.LSTM(1, 32, batch_first=True); head = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
+        params = list(lstm.parameters()) + list(head.parameters())
+        opt = Adam(params, lr=3e-3, wd=1e-4)
+        pos_w = torch.tensor([(1 - y[tr].mean()) / (y[tr].mean() + 1e-6)])
+        lossf = nn.BCEWithLogitsLoss(pos_weight=pos_w)
+        Xtr, ytr = X[tr], y[tr]
+        for _ in range(epochs):
+            perm = torch.randperm(len(Xtr))
+            for i in range(0, len(Xtr), 64):
+                idx = perm[i:i + 64]
+                out, _ = lstm(Xtr[idx]); logit = head(out[:, -1]).squeeze(-1)
+                loss = lossf(logit, ytr[idx]); opt.zero_grad(); loss.backward(); opt.step()
+        with torch.no_grad():
+            out, _ = lstm(X[te]); pred[te] = torch.sigmoid(head(out[:, -1]).squeeze(-1)).numpy()
     return pred
 
 
@@ -86,12 +135,20 @@ def main():
     hgb = lambda: HistGradientBoostingClassifier(max_depth=3, learning_rate=0.05, max_iter=200, l2_regularization=1.0)  # noqa: E731
     df["logreg"] = loko(df, logreg, FEATS)
     df["hgb"] = loko(df, hgb, FEATS)
+    from sklearn.ensemble import RandomForestClassifier
+    df["rf"] = loko(df, lambda: RandomForestClassifier(n_estimators=300, min_samples_leaf=5, random_state=0), FEATS)
+    try:
+        from xgboost import XGBClassifier
+        df["xgb"] = loko(df, lambda: XGBClassifier(n_estimators=300, max_depth=3, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8, reg_lambda=1.0, verbosity=0), FEATS)
+    except ImportError:
+        print("xgboost 없음 → 건너뜀")
+    df["lstm"] = loko_lstm(df)
     if "timesfm" in df:
         d2 = df.dropna(subset=["timesfm"]).copy()
         d2["stack"] = loko(d2, logreg, FEATS + ["timesfm"])
         df = df.merge(d2[["keyword", "origin_week", "stack"]], on=["keyword", "origin_week"], how="left")
 
-    models = [m for m in ["naive_trend", "logreg", "hgb", "timesfm", "stack"] if m in df]
+    models = [m for m in ["naive_trend", "logreg", "rf", "xgb", "hgb", "lstm", "timesfm", "stack"] if m in df]
     print("\n전체 AUC (학습 모델은 leave-one-keyword-out):")
     for m in models:
         ok = df.dropna(subset=[m])
@@ -114,7 +171,7 @@ def main():
     print("\n로지스틱 회귀 계수 (표준화 특징, +면 유지 확률 ↑):")
     for f, c in sorted(zip(FEATS, coef), key=lambda x: -abs(x[1])):
         print(f"  {f:18s} {c:+.2f}")
-    df.to_parquet(ROOT / "data/processed/experiments_loko.parquet", index=False)
+    df.drop(columns=["seq"]).to_parquet(ROOT / "data/processed/experiments_loko.parquet", index=False)
 
 
 if __name__ == "__main__":
