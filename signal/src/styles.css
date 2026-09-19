@@ -2349,7 +2349,7 @@ footer .signal-mark i {
 .suggestions.candidates { margin-top: 10px; }
 .suggestions.candidates button small { margin-left: 6px; font-size: 10px; color: #7e8ea8; }
 .suggestions.candidates button.pending { border-style: dashed; color: #7e8ea8; }
-.trend-verdict { display: flex; align-items: center; gap: 22px; padding: 22px 26px; border-radius: 14px; background: #f4f7fc; border-left: 6px solid #98a4ac; margin-bottom: 28px; }
+.trend-verdict { display: flex; align-items: flex-start; gap: 22px; padding: 22px 26px; border-radius: 14px; background: #f4f7fc; border-left: 6px solid #98a4ac; margin-bottom: 28px; }
 .trend-verdict[data-signal="green"] { border-left-color: #1e9c58; }
 .trend-verdict[data-signal="amber"] { border-left-color: #d99a06; }
 .trend-verdict[data-signal="red"] { border-left-color: #d4413a; }
@@ -2434,3 +2434,47 @@ footer .signal-mark i {
   color: var(--ink);
   white-space: nowrap;
 }
+
+/* 트렌드 탭 단순화 */
+.trend-verdict h3 { font-size: 22px; margin: 4px 0 0; }
+.trend-verdict > div { flex: 1; min-width: 0; }
+.trend-verdict p { margin: 0 0 2px; font-size: 14px; color: #3c4a60; }
+.trend-verdict p b { color: #202d43; }
+.tc-block { margin-top: 28px; }
+.tc-block-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.tc-block-h h4 { margin: 0; font-size: 16px; }
+.tc-link { background: none; border: 0; color: #285bb0; font: inherit; font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+.tc-strip { display: flex; gap: 1px; height: 8px; border-radius: 3px; overflow: hidden; margin: 8px 0 0 42px; }
+.tc-strip i { display: block; }
+.tc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.tc-lead { font-size: 14px; color: #3c4a60; margin: 0 0 8px; line-height: 1.6; }
+.tc-bars { display: grid; gap: 6px; font-size: 12px; margin-top: 10px; }
+.tc-bars-t { font-weight: 600; color: #6b7e9b; font-size: 11px; margin-bottom: 2px; }
+.tc-bar-row { display: grid; grid-template-columns: 62px 1fr 40px; align-items: center; gap: 8px; }
+.tc-bar-row i { display: block; height: 10px; background: #eef2f8; border-radius: 3px; overflow: hidden; }
+.tc-bar-row b { display: block; height: 100%; border-radius: 3px; background: #244986; }
+.tc-bar-row small { text-align: right; color: #6b7e9b; }
+.tc-lags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tc-lags span { border: 1px solid #e3e8ef; border-radius: 999px; padding: 4px 12px; font-size: 13px; color: #3c4a60; }
+.tc-lags span.on { border-color: #285bb0; background: #eef2f8; color: #285bb0; }
+.tc-lags b { font-weight: 600; margin-left: 4px; }
+.tc-details { margin-top: 28px; font-size: 13px; color: #6b7e9b; }
+.tc-details summary { cursor: pointer; font-weight: 600; color: #3c4a60; }
+.tc-details ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.7; }
+@media (max-width: 720px) { .tc-two { grid-template-columns: 1fr; } }
+
+/* 타임머신 */
+.tc-tm { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 13px; color: #3c4a60; }
+.tc-tm input[type=range] { flex: 1; accent-color: #285bb0; }
+.tc-tm span { min-width: 84px; font-variant-numeric: tabular-nums; }
+.tc-tm-badge { display: inline-block; font-size: 11px; color: #285bb0; background: #eef2f8; border-radius: 4px; padding: 2px 8px; margin-bottom: 6px; }
+
+/* 현재 → 3개월 → 6개월 */
+.tc-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0 0; }
+.tc-step { background: #fff; border: 1px solid #e3e8ef; border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; align-content: start; border-top-width: 3px; }
+.tc-step[data-color="green"] { border-top-color: #1E9C58; } .tc-step[data-color="amber"] { border-top-color: #D99A06; } .tc-step[data-color="red"] { border-top-color: #D4413A; } .tc-step[data-color="grey"] { border-top-color: #98A4AC; }
+.tc-step small { font-size: 11px; color: #7e8ea8; }
+.tc-step b { display: inline-flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; color: #202d43; letter-spacing: -0.5px; }
+.tc-step b i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+.tc-step span { font-size: 12.5px; color: #3c4a60; line-height: 1.5; }
+@media (max-width: 720px) { .tc-steps { grid-template-columns: 1fr; } }
