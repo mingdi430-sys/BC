@@ -50,7 +50,8 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
     labels = label_keywords()
     weeks = sorted(curves["week"].unique())
     widx = {w: i for i, w in enumerate(weeks)}
-    base_kws = sorted(curves[curves["source"].isin(["label", "demo", "candidate"])]["keyword"].unique())
+    allowed = set(labels) | set(curves[curves["source"] == "demo"]["keyword"]) | (set(cands["phrase"]) if len(cands) else set())
+    base_kws = sorted(k for k in curves[curves["source"].isin(["label", "demo", "candidate"])]["keyword"].unique() if k in allowed)
     out = {"generated": dt.date.today().isoformat(),
            "weeks": [pd.Timestamp(w).strftime("%Y-%m-%d") for w in weeks], "keywords": {}, "candidates": [], "meta": {}}
     for kw in base_kws:
