@@ -93,7 +93,7 @@ from ..common.paths import PROCESSED  # noqa: E402
 
 FORECASTS_PARQUET = PROCESSED / "forecasts.parquet"
 BACKTEST_PARQUET = PROCESSED / "timesfm_backtest.parquet"
-GREEN_MIN = 0.9   # p_keep ≥ 0.9 → 초록
+GREEN_MIN = 0.8   # p_keep ≥ 0.8 → 초록 (백테스트 0.8~0.9 구간 실제 유지율 84%)
 RED_MAX = 0.5     # p_keep < 0.5 → 빨강
 
 
