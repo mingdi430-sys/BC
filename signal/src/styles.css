@@ -2300,3 +2300,9 @@ footer .signal-mark i {
 .tc-details summary { cursor: pointer; font-weight: 600; color: #3c4a60; }
 .tc-details ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.7; }
 @media (max-width: 720px) { .tc-two { grid-template-columns: 1fr; } }
+
+/* 타임머신 */
+.tc-tm { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 13px; color: #3c4a60; }
+.tc-tm input[type=range] { flex: 1; accent-color: #285bb0; }
+.tc-tm span { min-width: 84px; font-variant-numeric: tabular-nums; }
+.tc-tm-badge { display: inline-block; font-size: 11px; color: #285bb0; background: #eef2f8; border-radius: 4px; padding: 2px 8px; margin-bottom: 6px; }

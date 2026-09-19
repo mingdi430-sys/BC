@@ -19,7 +19,7 @@ import pandas as pd
 
 from .common.paths import CANDIDATES_PARQUET, CURVES_PARQUET, ROOT
 from .config import label_keywords
-from .lifecycle.forecast import BACKTEST_PARQUET, FORECASTS_PARQUET, GREEN_MIN, RED_MAX, auc
+from .lifecycle.forecast import BACKTEST_PARQUET, FORECASTS_PARQUET, GREEN_MIN, RED_MAX, auc, signal_history
 from .lifecycle.halflife import halflife_days
 from .lifecycle.stage import rolling_stages
 
@@ -91,6 +91,13 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
                                  "median_ratio": round(float(f["median_ratio"].iloc[0]), 3),
                                  "signal": adjusted_signal(p, last["stage"])}
         k["signal"] = k.get("forecast", {}).get("signal", "grey")
+        # 타임머신: 4주 간격 과거 시점의 판정 (그 시점까지의 데이터만 사용)
+        stages_by_idx = st["stage"].tolist()
+        hist = signal_history(base["value_norm"].to_numpy() * 100, base["week"].dt.strftime("%Y-%m-%d").tolist())
+        for h in hist:
+            h["stage"] = stages_by_idx[h["idx"]]
+            h["signal"] = adjusted_signal(h["p_keep"], h["stage"])
+        k["history"] = hist
         out["keywords"][kw] = k
     if len(cands):
         for r in cands.sort_values(["industry", "max_z"], ascending=[True, False]).itertuples():

@@ -21,22 +21,34 @@ function SignalLamp({ signal }) {
   );
 }
 
-// 결론 한 문장 + 근거 두 줄
-function verdict(keyword, t) {
-  const fc = t.forecast, p = fc ? Math.round(fc.p_keep * 100) : null, rel = t.current.rel, stage = t.current.stage;
-  const head = !fc ? `${keyword}은(는) 아직 예측이 없습니다`
-    : t.signal === "green" ? `${keyword}, 지금 들어가도 됩니다`
-    : t.signal === "amber" ? `${keyword}은(는) 6개월 뒤가 불확실합니다`
-    : `${keyword}은(는) 지금 시작하기엔 늦었습니다`;
-  const why1 = fc ? `6개월 뒤에도 지금 수요의 70% 이상 남을 확률 ${p}%` : "검색 곡선은 있지만 예측 모델 결과가 아직 없습니다";
-  const afterFad = stage === "stable" && rel != null && rel < 0.25;
-  const why2 = afterFad ? `지금은 정점(${t.peak_week.slice(0, 7)})의 ${Math.round(rel * 100)}% 수준에서 안정, 유행 아이템이 아니라 일반 메뉴로 봐야 합니다`
-    : stage === "stable" ? "급변 없이 유지되는 안정 수요, 유행 위험은 낮습니다"
-    : stage === "emerging" ? "검색이 막 늘기 시작한 초입입니다"
-    : stage === "surging" ? "최근 4주 검색이 50% 넘게 뛰었습니다, 이미 알려진 상태라 정점이 멀지 않을 수 있습니다"
-    : stage === "peak" ? "성장이 멈추고 꺾이기 시작했습니다" : "검색이 최근 4주 연속 줄고 있습니다";
-  const guard = fc && t.signal === "amber" && fc.p_keep < trendMeta.red_max ? " (예측은 비관적이지만 상승 구간이라 노랑으로 표시)" : "";
-  return { head, why1, why2: why2 + guard };
+// 결론 한 문장 + 근거 두 줄. h = 판정 시점(타임머신), null 이면 현재
+function verdict(keyword, t, h) {
+  const now = !h || h.idx === trendWeeks.length - 1;
+  const when = now ? "지금" : `${h.week.slice(0, 7)} 시점에`;
+  const p = h ? Math.round(h.p_keep * 100) : t.forecast ? Math.round(t.forecast.p_keep * 100) : null;
+  const signal = h ? h.signal : t.signal, stage = h ? h.stage : t.current.stage;
+  const vals = t.all.slice(0, (h ? h.idx : trendWeeks.length - 1) + 1).filter((x) => x != null);
+  const cur = vals.slice(-4).reduce((a, b) => a + b, 0) / Math.max(1, Math.min(4, vals.length));
+  const peakSoFar = Math.max(...vals), peakIdx = vals.indexOf(peakSoFar);
+  const rel = peakSoFar > 0 ? cur / peakSoFar : null;
+  const early = vals.slice(0, 26); const earlyMean = early.reduce((a, b) => a + b, 0) / Math.max(1, early.length);
+  const hadFad = earlyMean > 0 && peakSoFar / earlyMean >= 3;
+  const head = p == null ? `${keyword}은(는) 아직 예측이 없습니다`
+    : signal === "green" ? `${keyword}, ${when} 들어가도 됩니다`
+    : signal === "amber" ? `${keyword}은(는) ${when} 보면 6개월 뒤가 불확실합니다`
+    : `${keyword}은(는) ${when} 시작하기엔 늦었습니다`;
+  const why1 = p == null ? "검색 곡선은 있지만 예측 모델 결과가 아직 없습니다" : `6개월 뒤에도 ${when === "지금" ? "지금" : "그때"} 수요의 70% 이상 남을 확률 ${p}%`;
+  let why2;
+  if (stage === "stable") {
+    if (rel != null && rel < 0.25 && hadFad) why2 = `유행이 꺼진 뒤 정점(${t.peak_week.slice(0, 7)})의 ${Math.round(rel * 100)}% 수준에서 안정, 유행 아이템이 아니라 일반 메뉴로 봐야 합니다`;
+    else if (hadFad) why2 = `한때 유행했지만 정점의 ${Math.round(rel * 100)}% 수준에서 수요가 남아 정착한 아이템, 유행 위험 없이 들어갈 수 있는 경우`;
+    else why2 = "원래 급변 없이 유지되는 기본 수요, 유행 위험은 낮고 차별화는 다른 데서 만들어야 합니다";
+  } else if (stage === "emerging") why2 = "검색이 막 늘기 시작한 초입, 가장 좋은 타이밍이지만 유행이 되는지는 아직 확정 아님";
+  else if (stage === "surging") why2 = "최근 4주 검색이 50% 넘게 뛰었습니다, 이미 알려진 상태라 정점이 멀지 않을 수 있음";
+  else if (stage === "peak") why2 = "성장이 멈추고 꺾이기 시작했습니다";
+  else why2 = "검색이 최근 4주 연속 줄고 있습니다";
+  const guard = p != null && signal === "amber" && (h ? h.p_keep : t.forecast.p_keep) < trendMeta.red_max ? " (예측은 비관적이지만 상승 구간이라 노랑으로 표시)" : "";
+  return { head, why1, why2: why2 + guard, signal };
 }
 
 function AgeBars({ title, rows }) {
@@ -59,6 +71,11 @@ export function TrendAnalysis({ industry, selected }) {
   const initial = new URLSearchParams(window.location.search).get("item") || "";
   const [query, setQuery] = useState(initial), [keyword, setKeyword] = useState(getTrend(initial) ? initial : ""), [error, setError] = useState("");
   const [fullRange, setFullRange] = useState(false), [showAge, setShowAge] = useState(false);
+  const atParam = new URLSearchParams(window.location.search).get("at");
+  const [tm, setTm] = useState(() => {
+    const t0 = getTrend(initial); if (!t0 || !atParam || !t0.history) return null;
+    const i = t0.history.findIndex((x) => x.week >= atParam); return i < 0 || i === t0.history.length - 1 ? null : i;
+  }); // 타임머신: history 배열 인덱스, null = 현재
   const t = keyword ? getTrend(keyword) : null;
   const industryKeywords = industry ? keywordsForIndustry(industry) : [];
   const industryCandidates = industry ? candidatesForIndustry(industry, 8) : [];
@@ -69,16 +86,25 @@ export function TrendAnalysis({ industry, selected }) {
     const clean = value.trim();
     if (!clean) { setError("분석할 아이템을 입력해주세요."); return; }
     if (!getTrend(clean)) { setError(`'${clean}'의 검색 곡선이 아직 없습니다. 급등 후보는 다음 수집에서 추가됩니다.`); return; }
-    setKeyword(clean); setQuery(clean); setError("");
+    setKeyword(clean); setQuery(clean); setError(""); setTm(null);
   }
 
   let body = null;
   if (t) {
-    const v = verdict(keyword, t), fc = t.forecast;
+    const H = t.history || [];
+    const h = tm == null ? null : H[tm];
+    const v = verdict(keyword, t, h), fc = t.forecast;
     const XW = fc ? trendWeeks.concat(fc.weeks) : trendWeeks;
     const pad = fc ? fc.weeks.map(() => null) : [], hist = trendWeeks.map(() => null);
     const from = fullRange ? 0 : Math.max(0, trendWeeks.length - 104);
     const peakIdx = trendWeeks.indexOf(t.peak_week);
+    // 타임머신이면 그 시점까지만 보여주고, 그 시점의 예측 부채꼴을 얹는다
+    const cutIdx = h ? h.idx : trendWeeks.length - 1;
+    const shown = t.all.map((x, i) => (i <= cutIdx ? x : null)).concat(pad);
+    const fanLo = XW.map(() => null), fanHi = XW.map(() => null), fanMed = XW.map(() => null);
+    const src = h ? h : fc ? { median: fc.median, q10: fc.q10, q90: fc.q90 } : null;
+    if (src) { fanMed[cutIdx] = t.all[cutIdx]; for (let k = 0; k < 26 && cutIdx + 1 + k < XW.length; k++) { fanLo[cutIdx + 1 + k] = src.q10[k]; fanHi[cutIdx + 1 + k] = src.q90[k]; fanMed[cutIdx + 1 + k] = src.median[k]; } }
+    const actualAfter = h ? t.all.map((x, i) => (i > cutIdx ? x : null)).concat(pad) : null;
     const searchAge = ["2", "3", "4", "5", "6"].map((a) => ({ k: a, label: AGE_LABEL[a], v: recentMean(t.age[a]) }));
     const sTot = searchAge.reduce((s, r) => s + r.v, 0) || 1;
     searchAge.forEach((r) => { r.text = `${Math.round((r.v / sTot) * 100)}%`; });
@@ -100,9 +126,10 @@ export function TrendAnalysis({ industry, selected }) {
 
     body = (
       <div className="trend-result" aria-live="polite">
-        <div className="trend-verdict" data-signal={t.signal}>
-          <SignalLamp signal={t.signal} />
+        <div className="trend-verdict" data-signal={v.signal}>
+          <SignalLamp signal={v.signal} />
           <div>
+            {h && <span className="tc-tm-badge">타임머신 · {h.week} 시점의 판정 (그 뒤 데이터는 안 봄)</span>}
             <h3>{v.head}</h3>
             <p><b>{v.why1}</b></p>
             <p>{v.why2}</p>
@@ -115,10 +142,20 @@ export function TrendAnalysis({ industry, selected }) {
             <button className="tc-link" onClick={() => setFullRange(!fullRange)}>{fullRange ? "최근 2년만 보기" : "2020년부터 전체 보기"}</button>
           </div>
           <Curve series={[
-            { name: keyword, color: "#244986", values: t.all.concat(pad), fill: true },
-            ...(fc ? [{ name: "예측 구간", color: "#3166ba", band: { lo: hist.concat(fc.q10), hi: hist.concat(fc.q90) } },
-              { name: "예측 중앙값", color: "#3166ba", values: hist.slice(0, -1).concat([t.all[t.all.length - 1]]).concat(fc.median), dash: true }] : []),
-          ]} xweeks={XW} from={from} peakIdx={peakIdx} todayIdx={fc ? trendWeeks.length - 1 : null} h={240} />
+            { name: keyword, color: "#244986", values: shown, fill: true },
+            ...(actualAfter ? [{ name: "실제 (그 뒤)", color: "#9aa8bd", values: actualAfter }] : []),
+            ...(src ? [{ name: "예측 구간", color: "#3166ba", band: { lo: fanLo, hi: fanHi } },
+              { name: "예측 중앙값", color: "#3166ba", values: fanMed, dash: true }] : []),
+          ]} xweeks={XW} from={h ? Math.min(from, Math.max(0, cutIdx - 52)) : from} peakIdx={h ? null : peakIdx} todayIdx={cutIdx} todayLabel={h ? "판정 시점" : "오늘"} h={240} />
+          {H.length > 2 && (
+            <div className="tc-tm">
+              <label htmlFor="tm-slider">이 시점에 봤다면</label>
+              <input id="tm-slider" type="range" min="0" max={H.length - 1} value={tm == null ? H.length - 1 : tm}
+                onChange={(e) => { const i = +e.target.value; setTm(i === H.length - 1 ? null : i); }} />
+              <span>{h ? h.week : "지금"}</span>
+              {h && <button className="tc-link" onClick={() => setTm(null)}>지금으로</button>}
+            </div>
+          )}
           <div className="tc-strip" aria-label="단계 이력">
             {strip.map((s, k) => <i key={k} style={{ flex: s.w, background: STAGE_COLOR[s.s] }} title={`${STAGE_LABEL[s.s]} · ${s.from} ~ ${s.to}`} />)}
           </div>

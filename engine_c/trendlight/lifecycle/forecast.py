@@ -172,3 +172,23 @@ def per_keyword_metrics(bt: pd.DataFrame) -> pd.DataFrame:
                      "비율 오차(중앙값) TimesFM": round((g["median_ratio"] - g["actual_ratio"]).abs().median(), 2),
                      "비율 오차 naive": round((1 - g["actual_ratio"]).abs().median(), 2)})
     return pd.DataFrame(rows)
+
+
+def signal_history(values: np.ndarray, weeks: list, step: int = 4, min_context: int = 26,
+                   horizon: int = HORIZON, keep_frac: float = KEEP_FRAC) -> list[dict]:
+    """"그때 봤다면" 용: step 주 간격의 과거 시점마다 그 시점까지의 곡선만으로 낸 유지 확률·26주 중앙값 경로.
+    UI 타임머신 슬라이더가 쓴다. 미래 정보 없음."""
+    v = np.asarray(values, dtype=float)
+    origins = list(range(min_context, len(v), step))
+    if len(v) - 1 not in origins:
+        origins.append(len(v) - 1)
+    hist = [v[: t + 1] for t in origins]
+    _, q = forecast_batch(hist, horizon)
+    out = []
+    for k, t in enumerate(origins):
+        base = v[t - 3: t + 1].mean()
+        r = keep_probability(q[k], base, keep_frac)
+        out.append({"idx": int(t), "week": str(weeks[t])[:10], "p_keep": round(float(r["p_keep"]), 3),
+                    "median": [round(float(x) / 100, 5) for x in q[k][:, 5]],
+                    "q10": [round(float(x) / 100, 5) for x in q[k][:, 1]], "q90": [round(float(x) / 100, 5) for x in q[k][:, 9]]})
+    return out
