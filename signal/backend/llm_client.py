@@ -55,7 +55,7 @@ TOOLS = [
                         "amount",
                         "count",
                         "growth",
-                        "perCompetitorAmount",
+                        "amountPerStore",
                     ],
                 }
             },
