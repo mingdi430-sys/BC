@@ -144,18 +144,6 @@ export function RegionInfoPanel({
           </div>
         )}
         <div>
-          <dt>주민등록 인구 (2026.06)</dt>
-          <dd>
-            {region.population != null
-              ? `${region.population.toLocaleString("ko-KR")}명`
-              : "자료 없음"}
-          </dd>
-        </div>
-        <div>
-          <dt>인구 1인당 결제금액</dt>
-          <dd>{money(region.perCapitaAmount)}</dd>
-        </div>
-        <div>
           <dt>업종 경쟁업체 수 (추정)</dt>
           <dd>
             {region.competitors != null

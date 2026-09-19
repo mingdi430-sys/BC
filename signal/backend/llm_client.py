@@ -55,7 +55,6 @@ TOOLS = [
                         "amount",
                         "count",
                         "growth",
-                        "perCapitaAmount",
                         "perCompetitorAmount",
                     ],
                 }

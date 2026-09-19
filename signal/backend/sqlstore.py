@@ -21,7 +21,6 @@ from pathlib import Path
 import duckdb
 
 CSV = Path(__file__).resolve().parents[1] / "ABP_CONTEST_DATA.csv"
-POPULATION_JSON = Path(__file__).resolve().parents[1] / "src" / "populationData.json"
 DENSITY_JSON = Path(__file__).resolve().parents[1] / "src" / "businessDensityData.json"
 GENDER = {"1": "남성", "2": "여성", "3": "외국인", "x": "성별 미상"}
 AGE = {"1": "20대 이하", "2": "20대", "3": "30대", "4": "40대", "5": "50대", "6": "60대 이상", "x": "연령 미상"}
@@ -38,19 +37,14 @@ SCHEMA_TEXT = """테이블 card (BC카드 결제 집계, 2026년 1~6월, 행 = �
 - amt BIGINT: 결제 금액(원), cnt BIGINT: 결제 건수
 주의: 성별·연령이 'x'(미상)인 행은 합계에는 포함되지만 성별·연령 비율을 낼 때는 제외해야 한다. 여성 비율 = 여성 amt / (남성+여성 amt).
 
-테이블 population (행정안전부 주민등록인구, 시군구 단위, 업종 무관)
-- sido VARCHAR, sigungu VARCHAR, population BIGINT
-- 252개 시군구만 있음(인천 3개 구는 행정구역 개편으로 매칭 불가 → 없음). card와 조인할 땐 LEFT JOIN 쓰고
-  population이 NULL이면 그 지역은 1인당 계산에서 제외하고 있다고 밝혀라.
-
 테이블 competitors (소상공인시장진흥공단 상가업소, 시군구×업종 단위 동일업종 점포 수)
 - sido VARCHAR, sigungu VARCHAR, industry VARCHAR, count BIGINT
-- population과 마찬가지로 252개 시군구만 있음. 업체당 평균매출(추정) = 결제금액 / count.
+- 252개 시군구만 있음(인천 3개 구는 행정구역 개편으로 매칭 불가 → 없음). 업체당 평균매출(추정) = 결제금액 / count.
 
-1인당·업체당 질의 예시:
-SELECT c.sido, c.sigungu, SUM(c.amt) AS total_amt, p.population, SUM(c.amt)/p.population AS per_capita
-FROM card c JOIN population p ON c.sido=p.sido AND c.sigungu=p.sigungu
-WHERE c.industry='스넥' GROUP BY c.sido, c.sigungu, p.population ORDER BY per_capita DESC"""
+업체당 질의 예시:
+SELECT c.sido, c.sigungu, SUM(c.amt) AS total_amt, cp.count, SUM(c.amt)/cp.count AS per_shop
+FROM card c JOIN competitors cp ON c.sido=cp.sido AND c.sigungu=cp.sigungu AND cp.industry=c.industry
+WHERE c.industry='스넥' GROUP BY c.sido, c.sigungu, cp.count ORDER BY per_shop DESC"""
 
 
 class CardStore:
@@ -72,14 +66,6 @@ class CardStore:
             LEFT JOIN amap a ON a.code = CAST(r.AGE_CD AS VARCHAR)
         """)
         self.rows = self.con.execute("SELECT count(*) FROM card").fetchone()[0]
-
-        self.con.execute("CREATE TABLE population(sido VARCHAR, sigungu VARCHAR, population BIGINT)")
-        pop = json.loads(POPULATION_JSON.read_text(encoding="utf-8"))["data"]
-        pop_rows = []
-        for region_id, cell in pop.items():
-            sido, sigungu = region_id.split("|", 1)
-            pop_rows.append((sido, sigungu, cell.get("population")))
-        self.con.executemany("INSERT INTO population VALUES (?, ?, ?)", pop_rows)
 
         self.con.execute("CREATE TABLE competitors(sido VARCHAR, sigungu VARCHAR, industry VARCHAR, count BIGINT)")
         density = json.loads(DENSITY_JSON.read_text(encoding="utf-8"))["data"]
