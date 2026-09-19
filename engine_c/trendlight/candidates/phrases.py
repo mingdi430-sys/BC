@@ -68,6 +68,15 @@ def is_domestic(text: str) -> bool:
     return not FOREIGN_MARKERS.search(text or "")
 
 
+SOFT_STOP = frozenset("""초코 말차 크림 버터 우유 치즈 초콜릿 새우 돼지 소고기 딸기 옥수수 계란 국물 골드 고급 미니 대형 숙성 연어 참치 젤리 케이크 빵 고기
+간식 디저트 과자 음식 요리 메뉴 짜장 짬뽕 튀김 만두 순대 라면 우동 커피 쿠키 아이스크림 호떡 빙수 두바이 상하이 연세 하트 보라색 김치 로제 불닭 인절미 육포 바게트 스틱""".split())
+
+
+def _hard_stop(tokens: list[str], sw: frozenset) -> bool:
+    """쿼리·장르·일반어(HARD)가 토큰에 하나라도 있으면 복합어 전체를 버린다. 재료어(SOFT)는 단독일 때만 버린다."""
+    return any(t.lower() in sw and t not in SOFT_STOP for t in tokens)
+
+
 def extract_phrases(text: str) -> list[str]:
     """연속된 명사 토큰을 1~3개 묶어 명사구로 반환 (중복 제거, 등장 순)."""
     if not text:
@@ -87,6 +96,8 @@ def extract_phrases(text: str) -> list[str]:
                 ph = "".join(run[i:j]) if all(re.match(r"^[가-힣]+$", t) for t in run[i:j]) else " ".join(run[i:j])
                 if len(ph) < 2 or ph.lower() in sw or ph.isdigit():
                     continue
+                if _hard_stop(run[i:j], sw):
+                    continue
                 if not re.search(r"[가-힣]", ph):                     # 한글 없는 명사구(영문 조각·채널명) 제외
                     continue
                 if any(tok in REGION_WORDS for tok in run[i:j]) or ph in REGION_WORDS:
@@ -97,7 +108,7 @@ def extract_phrases(text: str) -> list[str]:
         run.clear()
 
     for t in toks:
-        if t.tag in _NOUN_TAGS and len(t.form) >= 1 and t.form.lower() not in sw:
+        if t.tag in _NOUN_TAGS and len(t.form) >= 1:  # 불용어는 완성된 명사구에만 적용 (토큰에서 자르면 초코+바게트 같은 복합어가 사라짐)
             run.append(t.form)
         else:
             flush()
