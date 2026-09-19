@@ -14,6 +14,17 @@ const API_BASE = import.meta.env.VITE_CHAT_API || "http://localhost:8000";
 const GENDER_COLOR = { 남성: "#2554C7", 여성: "#E8398F" };
 const BAR_COLOR = "#2554C7";
 
+// LLM 답변의 **굵게** 마크다운만 최소로 렌더링한다 (전체 마크다운 파서는 안 씀).
+function renderMarkdown(text) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    ),
+  );
+}
+
 // SQL 결과가 "라벨 여러 개 + 마지막 열 숫자" 모양이면 막대그래프로 그릴 수 있다고 판단한다.
 function chartData(query) {
   const { columns, rows } = query;
@@ -175,7 +186,7 @@ export function ChatPanel({
         )}
         {messages.map((m, i) => (
           <div key={i} className={`chat-bubble ${m.role}`}>
-            {m.content}
+            {renderMarkdown(m.content)}
             {m.queries?.filter((q) => !q.error).map((q, j) => <QueryChart key={j} query={q} />)}
             {m.queries?.length > 0 && (
               <details className="chat-sql">
