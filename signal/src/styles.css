@@ -284,6 +284,18 @@ h1 {
   color: #5d6d88;
   padding: 8px 0;
 }
+.change-industry-button {
+  font-size: 15px;
+  font-weight: 600;
+  color: #244986;
+  padding: 10px 16px;
+  border: 1px solid #d6dde8;
+  border-radius: 7px;
+  background: #fff;
+}
+.change-industry-button:hover {
+  background: #f4f7fc;
+}
 .filters {
   display: flex;
   align-items: center;

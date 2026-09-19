@@ -217,9 +217,6 @@ export function RegionInfoPanel({
         </p>
       </div>
       <TopRegionsTable records={records} selectedId={region.id} />
-      <a className="detail-link" href="#region-detail">
-        월별 상세 분석 보기 <ArrowRight size={15} />
-      </a>
     </aside>
   );
 }
@@ -313,7 +310,6 @@ export function CommercialAnalysis({
   return (
     <section id="commercial">
       <SectionHeading
-        number="01"
         title="상권 분석"
         description="전국의 소비 흐름, 제공된 데이터의 지역 단위 그대로."
       />
@@ -335,7 +331,6 @@ export function CommercialAnalysis({
             <button className="primary" onClick={() => setModal(true)}>
               분석 시작하기 <ArrowUpRight size={18} />
             </button>
-            <small>지역명과 업종명은 제공된 CSV를 그대로 사용합니다.</small>
           </div>
           <div className="intro-art national-intro">
             <span className="eyebrow">FROM THE SOURCE</span>
@@ -345,7 +340,6 @@ export function CommercialAnalysis({
               <br />
               세종특별자치시
             </p>
-            <small>임의로 세분화하지 않는 지역 탐색</small>
           </div>
         </div>
       ) : (
@@ -354,7 +348,7 @@ export function CommercialAnalysis({
             <h3>
               {industryLabel(industry)} <span>상권 분석</span>
             </h3>
-            <button className="text-button" onClick={() => setModal(true)}>
+            <button className="change-industry-button" onClick={() => setModal(true)}>
               업종 변경 ↗
             </button>
           </div>

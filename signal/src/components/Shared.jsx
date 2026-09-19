@@ -8,11 +8,10 @@ export const fmt = (r, k) =>
     : k === "count"
       ? `${r.count}만 건`
       : `+${r.growth}%`;
-export function SectionHeading({ number, title, description }) {
+export function SectionHeading({ title, description }) {
   return (
     <div className="section-heading">
       <div>
-        <span className="eyebrow">{number} / DATA ANALYSIS</span>
         <h2>{title}</h2>
         <p>{description}</p>
       </div>
