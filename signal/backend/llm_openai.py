@@ -2,13 +2,15 @@
 
 - 자연어 → SQL → 실행 결과를 근거로 답한다 (숫자는 결과에서만).
 - 범위 밖 질문(예측·추천·창업 성패 판단·원인 분석·데이터 밖 지식·개인정보)은 정해진 문구로 거절한다.
-- base_url을 바꾸면 회사 내부 서빙 모델 등 어떤 OpenAI 호환 엔드포인트에도 그대로 붙는다.
+- base_url을 바꾸면 회사 내부 서빙 모델·Gemini(OpenAI 호환 API) 등 어떤 OpenAI 호환 엔드포인트에도 그대로 붙는다.
 """
 from __future__ import annotations
 
 import json
 import logging
 import os
+
+from openai import OpenAI
 
 from llm_client import TOOLS as UI_TOOLS, build_system_prompt
 from sqlstore import SCHEMA_TEXT, CardStore
@@ -62,7 +64,7 @@ TOOLS = [_to_openai_tool(t) for t in UI_TOOLS] + [{
 }]
 
 
-def call_openai(client, store: CardStore, message: str, history: list[dict], screen: dict):
+def call_openai(client: OpenAI, store: CardStore, message: str, history: list[dict], screen: dict):
     system = build_system_prompt(screen) + "\n" + SCOPE_RULE
     messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": message}]
     actions, queries = [], []

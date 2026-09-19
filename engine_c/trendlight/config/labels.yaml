@@ -1,0 +1,44 @@
+# 검증 전용 정답 라벨. 후보 생성(candidates/)에는 절대 사용하지 않는다.
+# 반감기 기대값 출처: The Korea Herald, 2026-02-08 (원자료: 네이버 데이터랩).
+#   정의(기사 기준 추정): 검색량 정점 → 정점의 50% 이하로 처음 떨어진 날까지의 일수.
+#   기사 원자료는 일간 곡선일 가능성이 높다. 주간 곡선으로 재현 시 차이가 나면 halflife.py가 리포트한다.
+positives:
+  - keyword: 크로플
+    industry: 제과점
+    halflife_days: 163
+    approx_peak: "2021-03"      # 대략 정점 시기 (검증 힌트, 계산에는 미사용)
+  - keyword: 탕후루
+    industry: 스넥
+    halflife_days: 54
+    approx_peak: "2023-09"
+  - keyword: 두바이 초콜릿
+    industry: 편의점
+    halflife_days: 13
+    approx_peak: "2024-07"
+    aliases: ["두바이초콜릿"]
+  - keyword: 두쫀쿠
+    industry: 제과점
+    halflife_days: 17
+    approx_peak: "2025-11"
+  - keyword: 마라탕
+    industry: 중국음식
+    halflife_days: null
+  - keyword: 오마카세
+    industry: 일식회집
+    halflife_days: null
+  - keyword: 소금빵
+    industry: 제과점
+    halflife_days: null
+
+# 음성(안정) 사례: surging으로 판정되면 오판.
+negatives:
+  - {keyword: 김밥, industry: 스넥}
+  - {keyword: 떡볶이, industry: 스넥}
+  - {keyword: 치킨, industry: 일반한식}
+  - {keyword: 삼겹살, industry: 갈비전문점}
+  - {keyword: 짜장면, industry: 중국음식}
+  - {keyword: 라면, industry: 편의점}
+  - {keyword: 우유, industry: 슈퍼마켓}
+
+# 지역 시차용 접두 지역 (라벨 키워드에 한해 수집)
+regions: [서울, 부산, 대구, 광주, 대전]

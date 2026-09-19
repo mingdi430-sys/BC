@@ -171,7 +171,8 @@ export function ChatPanel({
       <div className="chat-messages">
         {messages.length === 0 && (
           <p className="chat-empty">
-            지역이나 업종에 대해 물어보거나, "강릉시 갈비전문점 보여줘"처럼 요청해보세요.
+            카드 데이터에 대해 물어보세요. 예: "성북구와 성동구 중 여성 결제 비율이 높은 곳은?", "서울에서 20대 비중이 높은 구 3개",
+            "강릉시 갈비전문점 보여줘". 예측·추천·원인 분석은 답하지 않아요.
           </p>
         )}
         {messages.map((m, i) => (

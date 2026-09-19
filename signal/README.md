@@ -76,6 +76,16 @@
 
 ## 챗봇 (LLM 분석 도우미)
 
+### 2026-09-18 추가: 카드 데이터 자연어 질의 (text-to-SQL)
+
+- `backend/.env`에 `OPENAI_API_KEY`가 있으면 제공자가 OpenAI(`LLM_MODEL`, 기본 `gpt-5-mini`)로 바뀌고, 기존 화면 조작 도구 4개에 **`query_card_data`**(읽기 전용 SQL) 도구가 추가된다. Gemini도 OpenAI 호환 엔드포인트(`LLM_BASE_URL`)로 붙는다. 키가 없으면 기존 Anthropic 경로 그대로.
+- `backend/sqlstore.py`: `ABP_CONTEST_DATA.csv`를 DuckDB 인메모리 테이블 `card`(month, sido, sigungu, gender_cd/gender, age_cd/age, industry, amt, cnt)로 올린다. SELECT 하나만 허용, 금지 키워드 차단, 200행 제한.
+- `backend/llm_openai.py`: 스키마·계산 규칙(비율은 미상·외국인 제외)·**답변 범위**를 시스템 프롬프트로 고정. 조회·집계·비교·순위만 답하고, 예측·추천·원인 해석·데이터 밖 정보·개인정보는 정해진 문구로 거절한다. 숫자는 SQL 결과에서만 인용.
+- 프런트 `ChatPanel`은 답변 아래 "근거 SQL n건"을 접이식으로 보여준다. API 주소는 `VITE_CHAT_API`(기본 `http://localhost:8010`; 8000은 이 서버에서 다른 프로세스가 사용).
+- 실행: `cd backend && python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/uvicorn main:app --port 8010`
+- 확인된 예: "성북구랑 성동구 중 여성 결제 비율이 높은 곳" → 성북구 45.40% vs 성동구 45.22%. "내년에 탕후루 가게 열면 성공할까" → 거절 문구.
+
+
 지도·드롭다운 클릭만으로는 "성장 중인데 경쟁이 적은 지역"처럼 복합 조건을 찾기 어렵습니다. 화면 오른쪽 상시 채팅 패널에서 한국어로 질문하면, 화면에 이미 계산된 수치만 근거로 답하고 필요하면 지도/업종/지표를 직접 조작합니다.
 
 - **백엔드**: `backend/` 아래 FastAPI 서버(`main.py`, `llm_client.py`). `POST /chat`이 현재 화면 상태(업종·지역·지표와 이미 계산된 통계)를 받아 Anthropic Claude에 전달하고, `set_industry`/`show_region`/`set_metric`/`clear_selection` 네 가지 도구(tool) 호출과 한국어 응답을 반환합니다.

@@ -15,23 +15,29 @@ load_dotenv(Path(__file__).parent / ".env")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("signal.chat")
 
-# 제공자: LLM_BASE_URL 있으면 OpenAI 호환 서버(회사 내부 서빙 모델 등),
-# 없으면 ANTHROPIC_API_KEY로 Anthropic 사용.
+# 제공자: OPENAI_API_KEY/LLM_BASE_URL 중 하나라도 있으면 OpenAI 호환 경로
+# (진짜 OpenAI, 회사 내부 서빙 모델, Gemini 등 OpenAI 호환 엔드포인트 전부 포함).
+# 둘 다 없으면 ANTHROPIC_API_KEY로 Anthropic(화면 조작만) 사용.
 _API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 _client = anthropic.Anthropic(api_key=_API_KEY) if _API_KEY else None
 
+_OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
 _LLM_BASE_URL = os.environ.get("LLM_BASE_URL")
 _openai = None
 _store = None
-if _LLM_BASE_URL:
+if _OPENAI_KEY or _LLM_BASE_URL:
     from openai import OpenAI
 
     from llm_openai import call_openai
     from sqlstore import CardStore
 
-    _openai = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "not-needed"), base_url=_LLM_BASE_URL)
+    _openai = OpenAI(api_key=_OPENAI_KEY or "not-needed", base_url=_LLM_BASE_URL or None)
     _store = CardStore()
-    logger.info("OpenAI 호환 제공자 사용: %s, card 테이블 %d행", _LLM_BASE_URL, _store.rows)
+    logger.info(
+        "OpenAI 호환 제공자 사용%s, card 테이블 %d행",
+        f" (base_url={_LLM_BASE_URL})" if _LLM_BASE_URL else "",
+        _store.rows,
+    )
 
 app = FastAPI(title="signal-chat")
 app.add_middleware(
@@ -43,6 +49,8 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://localhost:4173",
         "http://127.0.0.1:4173",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
@@ -75,7 +83,8 @@ class ChatResponse(BaseModel):
     reply: str
     actions: list[dict]
     configured: bool
-    queries: list[dict] = []
+    queries: list[dict] = []   # 실행한 SQL (투명성 표시용)
+    provider: str = ""
 
 
 @app.get("/health")
@@ -93,13 +102,14 @@ def chat(req: ChatRequest):
         try:
             history = [m.model_dump() for m in req.history]
             reply, actions, queries = call_openai(_openai, _store, req.message, history, req.screen.model_dump())
-            return ChatResponse(reply=reply, actions=actions, configured=True, queries=queries)
+            return ChatResponse(reply=reply, actions=actions, configured=True, queries=queries, provider="openai")
         except Exception:  # noqa: BLE001
             logger.exception("openai-compatible provider error")
             return ChatResponse(
                 reply="답변을 만드는 중 오류가 발생했어요. 다시 시도해주세요.",
                 actions=[],
                 configured=True,
+                provider="openai",
             )
     if _client is None:
         return ChatResponse(

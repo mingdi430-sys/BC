@@ -8,7 +8,7 @@ import { getRecords, resolveRegion } from "./data";
 export default function App() {
   const [industry, setIndustry] = useState(""),
     [selected, setSelected] = useState(""),
-    [view, setView] = useState("commercial"),
+    [view, setView] = useState(window.location.hash === "#trend" ? "trend" : "commercial"),
     [province, setProvinceState] = useState(""),
     [metric, setMetric] = useState("amount");
 
@@ -118,7 +118,8 @@ export default function App() {
           <Info size={16} />
           <p>
             상권 분석은 제공된 ABP_CONTEST_DATA.csv의 2026년 1~6월 집계입니다.
-            금액은 원 단위입니다. 검색 트렌드와 예측만 별도 시연 데이터입니다.
+            금액은 원 단위입니다. 트렌드 분석은 네이버 검색어 트렌드 곡선(2020년~)과
+            YouTube 급등 후보, TimesFM 6개월 예측을 사용하며 상권 데이터와 기간·출처가 다릅니다.
           </p>
         </div>
       </main>
