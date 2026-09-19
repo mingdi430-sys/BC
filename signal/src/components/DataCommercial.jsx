@@ -15,10 +15,14 @@ import {
   topRegions,
   industryLabel,
   genderAgeFor,
+  densityMeta,
+  opportunityRegions,
+  subcategoryMix,
 } from "../data";
 import { GenderAgeChart, CountPriceChart } from "./DemoCharts";
 import { municipalityGroups, municipalityName, resolveRegion } from "../data";
 import { MapPanel } from "./GeoMapPanel";
+import { SubcategoryMix } from "./SubcategoryMix";
 export function RegionInfoPanel({
   records,
   region,
@@ -27,6 +31,8 @@ export function RegionInfoPanel({
   province,
 }) {
   const [sort, setSort] = useState("amount");
+  const [onlyOpportunity, setOnlyOpportunity] = useState(false);
+  const opportunity = useMemo(() => opportunityRegions(records), [records]);
   if (!region)
     return (
       <aside className="region-info">
@@ -47,12 +53,31 @@ export function RegionInfoPanel({
                 ? "금액순"
                 : k === "count"
                   ? "건수순"
-                  : "증감률순"}
+                  : k === "growth"
+                    ? "증감률순"
+                    : "점포당순"}
             </button>
           ))}
         </div>
+        <label className="opportunity-toggle">
+          <input
+            type="checkbox"
+            checked={onlyOpportunity}
+            onChange={(e) => setOnlyOpportunity(e.target.checked)}
+          />
+          기회 후보만 보기 <small>({opportunity.regions.length}곳)</small>
+        </label>
+        {onlyOpportunity && (
+          <p className="opportunity-note">
+            6개월 결제금액 추세가 이 범위 평균보다 월 몇 %p 빠른지(오른쪽 숫자)와 점포당 결제금액 상위 25%
+            {opportunity.threshold != null &&
+              `(${money(Math.round(opportunity.threshold))} 이상)`}
+            인 지역입니다. 점포 수는 근사 매칭이며 자료 월이 적거나 점포
+            10개 미만인 지역은 제외했습니다. 참고용 필터이지 창업 가능 판정이 아닙니다.
+          </p>
+        )}
         <div className="region-list">
-          {[...records]
+          {(onlyOpportunity ? opportunity.regions : [...records])
             .sort(
               (a, b) =>
                 (b[sort] ?? -Infinity) - (a[sort] ?? -Infinity) ||
@@ -66,9 +91,15 @@ export function RegionInfoPanel({
                     {r.province} · {metricText(r, sort)}
                   </small>
                 </div>
-                <span className={r.growth < 0 ? "negative" : "green"}>
-                  {signed(r.growth)}
-                </span>
+                {onlyOpportunity && r.excessTrend != null ? (
+                  <span className="green">
+                    추세 +{(r.excessTrend * 100).toFixed(1)}%p
+                  </span>
+                ) : (
+                  <span className={r.growth < 0 ? "negative" : "green"}>
+                    {signed(r.growth)}
+                  </span>
+                )}
                 <ArrowRight size={14} />
               </button>
             ))}
@@ -128,6 +159,22 @@ export function RegionInfoPanel({
           </dd>
         </div>
         <div>
+          <dt>점포 수 (상가정보)</dt>
+          <dd>
+            {region.stores != null
+              ? `${region.stores.toLocaleString("ko-KR")}개`
+              : "자료 없음"}
+          </dd>
+        </div>
+        <div>
+          <dt>점포당 결제금액</dt>
+          <dd>
+            {region.amountPerStore != null
+              ? money(Math.round(region.amountPerStore))
+              : "산출 불가"}
+          </dd>
+        </div>
+        <div>
           <dt>자료가 있는 월</dt>
           <dd>
             {Object.keys(region.monthly).length} / {months.length}개월
@@ -149,6 +196,12 @@ export function RegionInfoPanel({
           </div>
         )}
       </dl>
+      <p className="supply-note">
+        점포 수: 소상공인시장진흥공단 상가(상권)정보 {densityMeta.stdrYm.slice(0, 4)}.
+        {densityMeta.stdrYm.slice(4)} 기준. 업종 매칭은 근사치
+        {densityMeta.mapping[industry] ? ` (${densityMeta.mapping[industry]})` : ""}
+        이며, 점포당 결제금액이 높을수록 수요 대비 점포가 적다는 뜻입니다.
+      </p>
       {region.lowSample && (
         <p className="low-sample-warn">
           <Info size={14} /> 6개월 중 자료가 있는 달이 2개월 이하로 표본이
@@ -200,6 +253,7 @@ function TopRegionsTable({ records, selectedId }) {
 }
 export function RegionDetailAnalysis({ region, industry }) {
   const genderAge = genderAgeFor(region, industry);
+  const mix = subcategoryMix(region, industry);
   return (
     <section className="region-detail" id="region-detail">
       <div className="detail-heading">
@@ -216,6 +270,12 @@ export function RegionDetailAnalysis({ region, industry }) {
         <h4>b. 이용 건수 / 결제 단가</h4>
         <CountPriceChart monthly={region.monthly} months={months} label={region.name} industry={industry} />
       </div>
+      {mix && (
+        <div className="demo-section">
+          <h4>c. 세부 업종별 점포 구성</h4>
+          <SubcategoryMix mix={mix} label={region.name} industry={industry} />
+        </div>
+      )}
     </section>
   );
 }
