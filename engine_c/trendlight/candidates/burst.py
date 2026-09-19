@@ -32,9 +32,10 @@ def detect_bursts(weekly: pd.DataFrame, baseline_weeks: int = BASELINE_WEEKS, z_
     weekly["week"] = pd.to_datetime(weekly["week"])
     weekly = weekly.groupby(["industry", "phrase", "source", "week"], as_index=False, dropna=False)["count"].sum()
     events = []
+    gmin, gmax = weekly["week"].min(), weekly["week"].max()   # 기준선은 전체 수집 기간 기준 (처음 등장한 명사구도 앞 주는 0으로 센다)
     for (ind, ph, src), g in weekly.groupby(["industry", "phrase", "source"], dropna=False):
         g = g.set_index("week")["count"].sort_index()
-        full = pd.date_range(g.index.min(), g.index.max(), freq="7D")  # 주간 격자 고정
+        full = pd.date_range(gmin, gmax, freq="7D")  # 주간 격자 고정
         s = g.reindex(full, fill_value=0).astype(float)
         if len(s) < 6:
             continue
@@ -42,7 +43,7 @@ def detect_bursts(weekly: pd.DataFrame, baseline_weeks: int = BASELINE_WEEKS, z_
         mean = prev.rolling(baseline_weeks, min_periods=4).mean()
         std = prev.rolling(baseline_weeks, min_periods=4).std(ddof=0)
         z = (s - mean) / (std + 0.5)   # 분산 0인 짧은 기준선에서 z 폭주 방지 (연속성 보정)
-        ratio = s / prev.replace(0, np.nan)
+        ratio = s / (prev + 1.0)       # 전주가 0이어도 정의되게 (+1 보정)
         hit = ((z >= z_thresh) | (ratio >= ratio_thresh)) & (s >= min_count)
         for w in s.index[hit]:
             events.append({"phrase": ph, "industry": ind, "burst_week": w, "z": float(z.get(w, np.nan)),
@@ -55,7 +56,8 @@ def select_candidates(events: pd.DataFrame, top: int = TOP_PER_INDUSTRY) -> pd.D
     if events.empty:
         return pd.DataFrame(columns=["phrase", "industry", "burst_start_week", "max_z", "max_ratio", "sources", "n_bursts"])
     ev = events.copy()
-    ev["score"] = ev["z"].fillna(0).clip(lower=0) + np.log1p(ev["ratio"].fillna(1).clip(lower=1))
+    # 점수 = 급등 규모(건수) × 배율, z는 보조. z만 쓰면 기준선 분산이 0에 가까운 잡음어("하트")가 상위를 차지한다.
+    ev["score"] = np.log1p(ev["count"]) * np.log1p(ev["ratio"].fillna(1).clip(lower=1, upper=20)) + ev["z"].fillna(0).clip(lower=0, upper=10) / 10
     agg = ev.groupby(["phrase", "industry"], dropna=False).agg(
         burst_start_week=("burst_week", "min"), max_z=("z", "max"), max_ratio=("ratio", "max"),
         score=("score", "max"), n_bursts=("burst_week", "size"),
