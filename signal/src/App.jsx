@@ -82,7 +82,7 @@ export default function App() {
           <p>좋은 시작을 위한, 데이터의 새로운 관점.</p>
           <span className="data-badge">BC카드 소비 × 검색 트렌드</span>
         </div>
-        <div className="app-layout">
+        <div className={`app-layout ${industry ? "" : "no-chat"}`}>
           {view === "commercial" ? (
             <CommercialAnalysis
               industry={industry}
@@ -99,18 +99,20 @@ export default function App() {
           ) : (
             <TrendAnalysis industry={industry} selected={selected} />
           )}
-          <ChatPanel
-            industry={industry}
-            setIndustry={chooseIndustry}
-            selected={selected}
-            setSelected={choose}
-            province={province}
-            metric={metric}
-            setMetric={setMetric}
-            all={all}
-            region={region}
-            view={view}
-          />
+          {industry ? (
+            <ChatPanel
+              industry={industry}
+              setIndustry={chooseIndustry}
+              selected={selected}
+              setSelected={choose}
+              province={province}
+              metric={metric}
+              setMetric={setMetric}
+              all={all}
+              region={region}
+              view={view}
+            />
+          ) : null}
         </div>
         <div className="data-disclaimer">
           <Info size={16} />

@@ -9,7 +9,48 @@ import {
   resolveRegion,
 } from "../data";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_CHAT_API || "http://localhost:8000";
+
+const GENDER_COLOR = { 남성: "#2554C7", 여성: "#E8398F" };
+const BAR_COLOR = "#2554C7";
+
+// SQL 결과가 "라벨 여러 개 + 마지막 열 숫자" 모양이면 막대그래프로 그릴 수 있다고 판단한다.
+function chartData(query) {
+  const { columns, rows } = query;
+  if (!columns || !rows || rows.length < 2 || rows.length > 12) return null;
+  const valueIdx = columns.length - 1;
+  if (!rows.every((r) => typeof r[valueIdx] === "number")) return null;
+  const bars = rows.map((r) => ({
+    label: r.slice(0, valueIdx).filter((v) => v != null && v !== "").join(" ") || "(전체)",
+    value: r[valueIdx],
+  }));
+  const max = Math.max(...bars.map((b) => Math.abs(b.value)), 1);
+  return { bars, max };
+}
+
+function QueryChart({ query }) {
+  const chart = chartData(query);
+  if (!chart) return null;
+  return (
+    <div className="chat-chart">
+      {chart.bars.map((b, i) => (
+        <div className="chat-chart-row" key={i}>
+          <span className="chat-chart-label">{b.label}</span>
+          <div className="chat-chart-track">
+            <div
+              className="chat-chart-fill"
+              style={{
+                width: `${(Math.abs(b.value) / chart.max) * 100}%`,
+                background: GENDER_COLOR[b.label] || BAR_COLOR,
+              }}
+            />
+          </div>
+          <span className="chat-chart-value">{b.value.toLocaleString("ko-KR")}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function ChatPanel({
   industry,
@@ -110,7 +151,7 @@ export function ChatPanel({
       const data = await res.json();
       applyActions(data.actions);
       setConfigured(data.configured);
-      setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+      setMessages((m) => [...m, { role: "assistant", content: data.reply, queries: data.queries || [] }]);
     } catch {
       setMessages((m) => [
         ...m,
@@ -136,6 +177,19 @@ export function ChatPanel({
         {messages.map((m, i) => (
           <div key={i} className={`chat-bubble ${m.role}`}>
             {m.content}
+            {m.queries?.filter((q) => !q.error).map((q, j) => <QueryChart key={j} query={q} />)}
+            {m.queries?.length > 0 && (
+              <details className="chat-sql">
+                <summary>근거 SQL {m.queries.length}건</summary>
+                {m.queries.map((q, j) => (
+                  <div key={j}>
+                    {q.purpose && <small>{q.purpose}</small>}
+                    <pre>{q.sql}</pre>
+                    <small>{q.error ? `오류: ${q.error}` : `${q.rows.length}행`}</small>
+                  </div>
+                ))}
+              </details>
+            )}
           </div>
         ))}
         {loading && <div className="chat-bubble assistant chat-loading">…</div>}
