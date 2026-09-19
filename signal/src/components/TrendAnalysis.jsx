@@ -115,7 +115,7 @@ export function TrendAnalysis({ industry, selected }) {
     const shown = t.all.map((x, i) => (i <= cutIdx ? x : null)).concat(pad);
     const fanLo = XW.map(() => null), fanHi = XW.map(() => null), fanMed = XW.map(() => null);
     const src = h ? h : fc ? { median: fc.median, q10: fc.q10, q90: fc.q90 } : null;
-    if (src) { fanMed[cutIdx] = t.all[cutIdx]; for (let k = 0; k < 26 && cutIdx + 1 + k < XW.length; k++) { fanLo[cutIdx + 1 + k] = src.q10[k]; fanHi[cutIdx + 1 + k] = src.q90[k]; fanMed[cutIdx + 1 + k] = src.median[k]; } }
+    if (src) { const ev = src.fan_every || 1; fanMed[cutIdx] = t.all[cutIdx]; for (let k = 0; k < src.median.length; k++) { const j = cutIdx + ev * (k + 1); if (j >= XW.length) break; fanLo[j] = src.q10[k]; fanHi[j] = src.q90[k]; fanMed[j] = src.median[k]; } }
     const actualAfter = h ? t.all.map((x, i) => (i > cutIdx ? x : null)).concat(pad) : null;
     const searchAge = ["2", "3", "4", "5", "6"].map((a) => ({ k: a, label: AGE_LABEL[a], v: recentMean(t.age[a]) }));
     const sTot = searchAge.reduce((s, r) => s + r.v, 0) || 1;

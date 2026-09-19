@@ -174,8 +174,8 @@ def per_keyword_metrics(bt: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def signal_history(values: np.ndarray, weeks: list, step: int = 4, min_context: int = 26,
-                   horizon: int = HORIZON, keep_frac: float = KEEP_FRAC) -> list[dict]:
+def signal_history(values: np.ndarray, weeks: list, step: int = 8, min_context: int = 26,
+                   horizon: int = HORIZON, keep_frac: float = KEEP_FRAC, fan_every: int = 2) -> list[dict]:
     """"그때 봤다면" 용: step 주 간격의 과거 시점마다 그 시점까지의 곡선만으로 낸 유지 확률·26주 중앙값 경로.
     UI 타임머신 슬라이더가 쓴다. 미래 정보 없음."""
     v = np.asarray(values, dtype=float)
@@ -188,7 +188,8 @@ def signal_history(values: np.ndarray, weeks: list, step: int = 4, min_context: 
     for k, t in enumerate(origins):
         base = v[t - 3: t + 1].mean()
         r = keep_probability(q[k], base, keep_frac)
-        out.append({"idx": int(t), "week": str(weeks[t])[:10], "p_keep": round(float(r["p_keep"]), 3),
-                    "median": [round(float(x) / 100, 5) for x in q[k][:, 5]],
-                    "q10": [round(float(x) / 100, 5) for x in q[k][:, 1]], "q90": [round(float(x) / 100, 5) for x in q[k][:, 9]]})
+        sl = slice(fan_every - 1, horizon, fan_every)  # 부채꼴은 fan_every 주 간격만 저장 (용량)
+        out.append({"idx": int(t), "week": str(weeks[t])[:10], "p_keep": round(float(r["p_keep"]), 3), "fan_every": fan_every,
+                    "median": [round(float(x) / 100, 4) for x in q[k][sl, 5]],
+                    "q10": [round(float(x) / 100, 4) for x in q[k][sl, 1]], "q90": [round(float(x) / 100, 4) for x in q[k][sl, 9]]})
     return out
