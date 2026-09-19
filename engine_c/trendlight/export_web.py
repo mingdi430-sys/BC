@@ -43,6 +43,64 @@ def adjusted_signal(p_keep: float | None, stage: str) -> str:
     return sig
 
 
+def build_keyword_entry(kw: str, curves: pd.DataFrame, fc: pd.DataFrame, labels: dict, weeks: list, widx: dict) -> dict | None:
+    """키워드 하나의 웹 항목 (곡선·단계·반감기·예측·타임머신). 온디맨드 조회(ondemand.py)도 이 함수를 쓴다."""
+    g = curves[curves["keyword"] == kw]
+    base = g[(g["gender"] == "all") & (g["age"] == "all")].sort_values("week")
+    if len(base) < 16:
+        return None
+    st = rolling_stages(base)
+    rle = []
+    for s_ in st["stage"]:
+        if rle and rle[-1][0] == s_:
+            rle[-1][1] += 1
+        else:
+            rle.append([s_, 1])
+    hl = halflife_days(base["week"], base["value_norm"].to_numpy())
+    last = st.iloc[-1]
+    k = {"industry": base["industry"].iloc[0], "source": base["source"].iloc[0],
+         "polarity": labels.get(kw, {}).get("polarity", "candidate"),
+         "all": _series(base, widx), "stages": rle,
+         "current": {"stage": last["stage"], "growth": None if pd.isna(last["growth"]) else round(float(last["growth"]), 3),
+                     "rel": None if pd.isna(last["rel"]) else round(float(last["rel"]), 3)},
+         "peak_week": hl["peak_week"].strftime("%Y-%m-%d"), "peak_value": round(hl["peak_value"], 5),
+         "halflife_days": hl["halflife_days"], "expected_halflife_days": labels.get(kw, {}).get("halflife_days"),
+         "gender": {s_: _series(g[(g["gender"] == s_) & (g["age"] == "all")], widx) for s_ in ["m", "f"]},
+         "age": {a: _series(g[(g["gender"] == "all") & (g["age"] == a)], widx) for a in "123456"},
+         "region": {}}
+    for r in REGIONS:
+        rg = curves[(curves["keyword"] == f"{r} {kw}") & (curves["gender"] == "all") & (curves["age"] == "all")]
+        if len(rg):
+            k["region"][r] = _series(rg, widx)
+    vv = base["value_norm"].to_numpy() * 100
+    if len(fc) and (fc["keyword"] == kw).any():
+        f = fc[fc["keyword"] == kw].sort_values("h")
+        p = float(f["p_keep"].iloc[0])
+        k["forecast"] = {"weeks": [w.strftime("%Y-%m-%d") for w in f["week"]],
+                         "median": f["median"].round(5).tolist(), "q10": f["q10"].round(5).tolist(),
+                         "q90": f["q90"].round(5).tolist(), "p_keep": round(p, 3),
+                         "median_ratio": round(float(f["median_ratio"].iloc[0]), 3), "signal": adjusted_signal(p, last["stage"])}
+    else:  # 예측 파일에 없으면 즉석 계산
+        _, q = forecast_batch([vv], 26)
+        bv = vv[-4:].mean(); r_ = keep_probability(q[0], bv)
+        lastw = pd.Timestamp(base["week"].iloc[-1])
+        k["forecast"] = {"weeks": [(lastw + pd.Timedelta(weeks=h + 1)).strftime("%Y-%m-%d") for h in range(26)],
+                         "median": [round(float(x) / 100, 5) for x in q[0][:, 5]], "q10": [round(float(x) / 100, 5) for x in q[0][:, 1]],
+                         "q90": [round(float(x) / 100, 5) for x in q[0][:, 9]], "p_keep": round(float(r_["p_keep"]), 3),
+                         "median_ratio": round(float(r_["median_ratio"]), 3), "signal": adjusted_signal(float(r_["p_keep"]), last["stage"])}
+    k["signal"] = k["forecast"]["signal"]
+    _, q52 = forecast_batch([vv], 52)
+    bv = vv[-4:].mean()
+    k["horizons"] = {str(hz): round(float(keep_probability(q52[0], bv, h_from=hz - 4, h_to=hz)["p_keep"]), 3) for hz in (13, 26, 52)}
+    stages_by_idx = st["stage"].tolist()
+    hist = signal_history(vv, base["week"].dt.strftime("%Y-%m-%d").tolist())
+    for h in hist:
+        h["stage"] = stages_by_idx[h["idx"]]
+        h["signal"] = adjusted_signal(h["p_keep"], h["stage"])
+    k["history"] = hist
+    return k
+
+
 def build(out_path: Path = DEFAULT_OUT) -> dict:
     curves = pd.read_parquet(CURVES_PARQUET)
     fc = pd.read_parquet(FORECASTS_PARQUET) if FORECASTS_PARQUET.exists() else pd.DataFrame()
@@ -55,56 +113,9 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
     out = {"generated": dt.date.today().isoformat(),
            "weeks": [pd.Timestamp(w).strftime("%Y-%m-%d") for w in weeks], "keywords": {}, "candidates": [], "meta": {}}
     for kw in base_kws:
-        g = curves[curves["keyword"] == kw]
-        base = g[(g["gender"] == "all") & (g["age"] == "all")].sort_values("week")
-        if len(base) < 16:
-            continue
-        st = rolling_stages(base)
-        rle = []
-        for s in st["stage"]:
-            if rle and rle[-1][0] == s:
-                rle[-1][1] += 1
-            else:
-                rle.append([s, 1])
-        hl = halflife_days(base["week"], base["value_norm"].to_numpy())
-        last = st.iloc[-1]
-        k = {"industry": base["industry"].iloc[0], "source": base["source"].iloc[0],
-             "polarity": labels.get(kw, {}).get("polarity", "candidate"),
-             "all": _series(base, widx), "stages": rle,
-             "current": {"stage": last["stage"], "growth": None if pd.isna(last["growth"]) else round(float(last["growth"]), 3),
-                         "rel": None if pd.isna(last["rel"]) else round(float(last["rel"]), 3)},
-             "peak_week": hl["peak_week"].strftime("%Y-%m-%d"), "peak_value": round(hl["peak_value"], 5),
-             "halflife_days": hl["halflife_days"], "expected_halflife_days": labels.get(kw, {}).get("halflife_days"),
-             "gender": {s: _series(g[(g["gender"] == s) & (g["age"] == "all")], widx) for s in ["m", "f"]},
-             "age": {a: _series(g[(g["gender"] == "all") & (g["age"] == a)], widx) for a in "123456"},
-             "region": {}}
-        for r in REGIONS:
-            rg = curves[(curves["keyword"] == f"{r} {kw}") & (curves["gender"] == "all") & (curves["age"] == "all")]
-            if len(rg):
-                k["region"][r] = _series(rg, widx)
-        if len(fc):
-            f = fc[fc["keyword"] == kw].sort_values("h")
-            if len(f):
-                p = float(f["p_keep"].iloc[0])
-                k["forecast"] = {"weeks": [w.strftime("%Y-%m-%d") for w in f["week"]],
-                                 "median": f["median"].round(5).tolist(), "q10": f["q10"].round(5).tolist(),
-                                 "q90": f["q90"].round(5).tolist(), "p_keep": round(p, 3),
-                                 "median_ratio": round(float(f["median_ratio"].iloc[0]), 3),
-                                 "signal": adjusted_signal(p, last["stage"])}
-        k["signal"] = k.get("forecast", {}).get("signal", "grey")
-        # 지평별 유지 확률 (3·6·12개월) — 색은 6개월 기준, 숫자는 셋 다 보여준다
-        vv = base["value_norm"].to_numpy() * 100
-        _, q52 = forecast_batch([vv], 52)
-        bv = vv[-4:].mean()
-        k["horizons"] = {str(hz): round(float(keep_probability(q52[0], bv, h_from=hz - 4, h_to=hz)["p_keep"]), 3) for hz in (13, 26, 52)}
-        # 타임머신: 4주 간격 과거 시점의 판정 (그 시점까지의 데이터만 사용)
-        stages_by_idx = st["stage"].tolist()
-        hist = signal_history(base["value_norm"].to_numpy() * 100, base["week"].dt.strftime("%Y-%m-%d").tolist())
-        for h in hist:
-            h["stage"] = stages_by_idx[h["idx"]]
-            h["signal"] = adjusted_signal(h["p_keep"], h["stage"])
-        k["history"] = hist
-        out["keywords"][kw] = k
+        k = build_keyword_entry(kw, curves, fc, labels, weeks, widx)
+        if k is not None:
+            out["keywords"][kw] = k
     if len(cands):
         for r in cands.sort_values(["industry", "max_z"], ascending=[True, False]).itertuples():
             out["candidates"].append({"phrase": r.phrase, "industry": r.industry,

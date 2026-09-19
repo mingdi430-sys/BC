@@ -4,6 +4,11 @@ import source from "./trendData.json";
 export const trendMeta = source.meta;
 export const trendWeeks = source.weeks;
 export const trendKeywords = Object.keys(source.keywords);
+// 온디맨드로 받아온 항목을 풀에 등록 (같은 세션 동안 유지)
+export function registerTrend(keyword, entry) {
+  source.keywords[keyword] = entry;
+  if (!trendKeywords.includes(keyword)) trendKeywords.push(keyword);
+}
 export const candidates = source.candidates;
 export const generatedAt = source.generated;
 

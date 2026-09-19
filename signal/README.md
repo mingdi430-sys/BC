@@ -75,6 +75,10 @@
 
 **인구 1인당 지표는 넣지 않습니다.** 그 지역 결제 총액에는 거주자뿐 아니라 방문객·유동인구 소비도 섞여 있어, 거주 인구(행정안전부 주민등록 인구)로 나누면 "주민 소비력"처럼 보이지만 실제로는 관광지·환승지 등 외부 유입이 많은 지역이 왜곡되어 높게 나옵니다. 오해를 줄 수 있는 지표라 제외했습니다(과거에 `perCapitaAmount`/`populationData.json`로 있었으나 제거함).
 
+## 트렌드 온디맨드 조회
+
+풀(`src/trendData.json`)에 없는 아이템을 검색하면 프런트가 `GET /trend/{키워드}` 를 호출한다. 백엔드는 `engine_c`의 `python -m trendlight.ondemand` 를 실행해 네이버에서 곡선(전체·성별·연령·5개 도시, 약 27회)을 받고 단계·반감기·TimesFM 예측을 계산해 같은 형식으로 돌려준다(첫 조회 20~30초, 이후 캐시). `backend/.env`에 `NAVER_CLIENT_ID/SECRET`, `ENGINE_C_ROOT`(engine_c 경로), `ENGINE_C_PYTHON`(그 venv의 python)이 필요하다.
+
 ## 챗봇 (LLM 분석 도우미)
 
 ### 2026-09-18 추가: 카드 데이터 자연어 질의 (text-to-SQL)

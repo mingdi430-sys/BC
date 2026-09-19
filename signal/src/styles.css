@@ -2478,3 +2478,5 @@ footer .signal-mark i {
 .tc-step b i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
 .tc-step span { font-size: 12.5px; color: #3c4a60; line-height: 1.5; }
 @media (max-width: 720px) { .tc-steps { grid-template-columns: 1fr; } }
+
+.tc-fetching { margin: 10px 0 0; font-size: 13px; color: #285bb0; background: #eef2f8; border-radius: 8px; padding: 10px 14px; }

@@ -87,6 +87,38 @@ class ChatResponse(BaseModel):
     provider: str = ""
 
 
+# ---------- 트렌드 온디맨드: 풀에 없는 키워드를 즉석에서 네이버에서 받아 판정 ----------
+import json as _json
+import subprocess
+from fastapi import HTTPException
+
+_ENGINE_ROOT = Path(os.environ.get("ENGINE_C_ROOT", str(Path(__file__).resolve().parents[2] / "engine_c")))
+_ENGINE_PY = os.environ.get("ENGINE_C_PYTHON", str(_ENGINE_ROOT / ".venv" / "bin" / "python"))
+_trend_cache: dict[str, dict] = {}
+
+
+@app.get("/trend/{keyword}")
+def trend_on_demand(keyword: str, industry: str | None = None):
+    kw = keyword.strip()
+    if not kw or len(kw) > 30:
+        raise HTTPException(400, "키워드가 비었거나 너무 깁니다")
+    if kw in _trend_cache:
+        return _trend_cache[kw]
+    if not (os.environ.get("NAVER_CLIENT_ID") and os.environ.get("NAVER_CLIENT_SECRET")):
+        raise HTTPException(503, "네이버 API 키가 설정되지 않았습니다 (backend/.env NAVER_CLIENT_ID/SECRET)")
+    try:
+        r = subprocess.run([_ENGINE_PY, "-m", "trendlight.ondemand", kw, *( [industry] if industry else [])],
+                           cwd=str(_ENGINE_ROOT), capture_output=True, text=True, timeout=180, env=os.environ.copy())
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, "수집 시간 초과")
+    if r.returncode != 0:
+        logger.error("ondemand 실패 %s: %s", kw, r.stderr[-800:])
+        raise HTTPException(502, "곡선을 받아오지 못했습니다 (네이버 한도 초과 또는 오류)")
+    data = _json.loads(r.stdout.strip().splitlines()[-1])
+    _trend_cache[kw] = data
+    return data
+
+
 @app.get("/health")
 def health():
     return {

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ArrowUpRight, ArrowRight, Search, ChartNoAxesCombined } from "lucide-react";
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
-  getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt,
+  getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
   STAGE_LABEL, SIGNAL_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean,
 } from "../trend";
 import { SectionHeading, shortIndustry } from "./Shared";
@@ -84,6 +84,8 @@ export function TrendAnalysis({ industry, selected }) {
   const [query, setQuery] = useState(initial), [keyword, setKeyword] = useState(getTrend(initial) ? initial : ""), [error, setError] = useState("");
   const [fullRange, setFullRange] = useState(false), [showAge, setShowAge] = useState(false);
   const atParam = new URLSearchParams(window.location.search).get("at");
+  const [fetching, setFetching] = useState("");
+  const API_BASE = import.meta.env.VITE_CHAT_API || "http://localhost:8000";
   const [tm, setTm] = useState(() => {
     const t0 = getTrend(initial); if (!t0 || !atParam || !t0.history) return null;
     const i = t0.history.findIndex((x) => x.week >= atParam); return i < 0 || i === t0.history.length - 1 ? null : i;
@@ -94,10 +96,23 @@ export function TrendAnalysis({ industry, selected }) {
   const suggestions = industryKeywords.length ? industryKeywords : trendKeywords.slice(0, 8);
   const region = resolveRegion(getRecords(industry), selected);
 
-  function search(value) {
+  async function search(value) {
     const clean = value.trim();
     if (!clean) { setError("분석할 아이템을 입력해주세요."); return; }
-    if (!getTrend(clean)) { setError(`'${clean}'의 검색 곡선이 아직 없습니다. 급등 후보는 다음 수집에서 추가됩니다.`); return; }
+    if (!getTrend(clean)) {
+      // 풀에 없으면 백엔드가 네이버에서 즉석 수집 (20~30초)
+      setError(""); setFetching(clean);
+      try {
+        const q = industry ? `?industry=${encodeURIComponent(industry.replace(/\s+/g, ""))}` : "";
+        const res = await fetch(`${API_BASE}/trend/${encodeURIComponent(clean)}${q}`);
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${res.status}`); }
+        const data = await res.json();
+        registerTrend(clean, data.entry);
+      } catch (e) {
+        setFetching(""); setError(`'${clean}' 곡선을 받아오지 못했습니다 (${e.message}). 백엔드가 켜져 있고 네이버 키가 있어야 합니다.`); return;
+      }
+      setFetching("");
+    }
     setKeyword(clean); setQuery(clean); setError(""); setTm(null);
   }
 
@@ -239,6 +254,7 @@ export function TrendAnalysis({ industry, selected }) {
         <button className="primary" type="submit">분석 <ArrowRight size={17} /></button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}
+      {fetching && <p className="tc-fetching" role="status">'{fetching}' 검색 곡선을 네이버에서 받아 판정하는 중입니다 (20~30초)…</p>}
       <div className="suggestions">
         <span>{industry ? `${industryLabel(shortIndustry(industry))} 아이템` : "아이템"}</span>
         {suggestions.map((k) => <button key={k} onClick={() => search(k)}>{k}<ArrowUpRight size={12} /></button>)}
