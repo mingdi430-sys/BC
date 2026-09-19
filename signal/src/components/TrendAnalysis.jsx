@@ -38,8 +38,7 @@ function verdict(keyword, t, h) {
     : signal === "amber" ? `${keyword}, ${when} 보면 6개월 뒤 수요가 불확실합니다`
     : `${keyword}, ${when} 보면 6개월 뒤 수요가 줄어들 가능성이 높습니다`;
   const risk = signal === "green" ? "유행 리스크 낮음" : signal === "amber" ? "유행 리스크 중간" : signal === "red" ? "유행 리스크 높음" : "";
-  const hz = !h && t.horizons ? ` · 3개월 ${Math.round(t.horizons["13"] * 100)}% / 6개월 ${Math.round(t.horizons["26"] * 100)}% / 12개월 ${Math.round(t.horizons["52"] * 100)}%` : "";
-  const why1 = p == null ? "검색 곡선은 있지만 예측 모델 결과가 아직 없습니다" : `${risk} · ${when === "지금" ? "지금" : "그때"} 수요의 70% 이상이 남을 확률${hz || ` 6개월 ${p}%`}`;
+  const why1 = p == null ? "검색 곡선은 있지만 예측 모델 결과가 아직 없습니다" : `${risk} · 유지 확률은 ${when === "지금" ? "지금" : "그때"} 수요의 70% 이상이 남을 확률`;
   let why2;
   if (stage === "stable") {
     if (rel != null && rel < 0.25 && hadFad) why2 = `유행이 꺼진 뒤 정점(${t.peak_week.slice(0, 7)})의 ${Math.round(rel * 100)}% 수준에서 안정, 유행 아이템이 아니라 일반 메뉴로 봐야 합니다`;
@@ -50,7 +49,18 @@ function verdict(keyword, t, h) {
   else if (stage === "peak") why2 = "성장이 멈추고 꺾이기 시작했습니다";
   else why2 = "검색이 최근 4주 연속 줄고 있습니다";
   const guard = p != null && signal === "amber" && (h ? h.p_keep : t.forecast.p_keep) < trendMeta.red_max ? " (예측은 비관적이지만 상승 구간이라 노랑으로 표시)" : "";
-  return { head, why1, why2: why2 + guard, signal };
+  const nowLabel = stage === "stable" ? (rel != null && rel < 0.25 && hadFad ? "꺼진 유행" : hadFad ? "정착한 유행" : "기본 수요")
+    : stage === "emerging" ? "유행 초입" : stage === "surging" ? "급등 중" : stage === "peak" ? "정점" : "하락 중";
+  const nowColor = stage === "emerging" ? "green" : stage === "surging" ? "amber" : stage === "peak" || stage === "declining" ? "red"
+    : (rel != null && rel < 0.25 && hadFad) ? "grey" : "green";
+  const sigOf = (pp) => (pp == null ? "grey" : pp >= trendMeta.green_min ? "green" : pp < trendMeta.red_max ? "red" : "amber");
+  const pText = (pp) => (pp >= trendMeta.green_min ? "수요가 남을 가능성 높음" : pp < trendMeta.red_max ? "수요가 줄어들 가능성 높음" : "불확실");
+  const steps = !h && t.horizons ? [
+    { label: "현재", value: nowLabel, color: nowColor, note: why2 },
+    { label: "3개월 뒤", value: `${Math.round(t.horizons["13"] * 100)}%`, color: sigOf(t.horizons["13"]), note: pText(t.horizons["13"]) },
+    { label: "6개월 뒤", value: `${Math.round(t.horizons["26"] * 100)}%`, color: signal, note: pText(t.horizons["26"]) + guard },
+  ] : null;
+  return { head, why1, why2: why2 + guard, signal, steps };
 }
 
 function AgeBars({ title, rows }) {
@@ -133,8 +143,17 @@ export function TrendAnalysis({ industry, selected }) {
           <div>
             {h && <span className="tc-tm-badge">타임머신 · {h.week} 시점의 판정 (그 뒤 데이터는 안 봄)</span>}
             <h3>{v.head}</h3>
-            <p><b>{v.why1}</b></p>
-            <p>{v.why2}</p>
+            {v.steps ? (
+              <div className="tc-steps">
+                {v.steps.map((st, i) => (
+                  <div key={st.label} className="tc-step" data-color={st.color}>
+                    <small>{st.label}{i > 0 ? " · 지금 수요의 70% 이상 남을 확률" : ""}</small>
+                    <b><i style={{ background: SIGNAL_COLOR[st.color] }} />{st.value}</b>
+                    <span>{st.note}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (<><p><b>{v.why1}</b></p><p>{v.why2}</p></>)}
           </div>
         </div>
 
@@ -199,6 +218,7 @@ export function TrendAnalysis({ industry, selected }) {
           <summary>어떻게 계산했나요</summary>
           <ul>
             <li>지금 단계 <b>{STAGE_LABEL[t.current.stage]}</b> · 최근 4주 vs 직전 4주 {t.current.growth == null ? "–" : `${t.current.growth > 0 ? "+" : ""}${Math.round(t.current.growth * 100)}%`} · 역대 최고 대비 {t.current.rel == null ? "–" : `${Math.round(t.current.rel * 100)}%`} · 정점 {t.peak_week.slice(0, 7)}</li>
+            {t.horizons && <li>유지 확률 3개월 {Math.round(t.horizons["13"] * 100)}% · 6개월 {Math.round(t.horizons["26"] * 100)}% · 12개월 {Math.round(t.horizons["52"] * 100)}%</li>}
             <li>반감기(정점 → 절반) {t.halflife_days == null ? "미도달" : `${t.halflife_days}일`}{t.expected_halflife_days ? ` (코리아헤럴드 기사 ${t.expected_halflife_days}일)` : ""}</li>
             <li>검색 곡선: 네이버 검색어 트렌드 주간, 2020년~, 앵커 '쿠팡' 평균을 100으로 정규화</li>
             <li>6개월 예측: {trendMeta.model}, 26주 분위수 예측에서 "지금의 70% 이상"일 확률을 읽음 · 라벨 백테스트 AUC {trendMeta.backtest?.auc}, 초록 판정의 실제 유지율 {trendMeta.backtest ? Math.round(trendMeta.backtest.green_precision * 100) : "–"}%</li>
