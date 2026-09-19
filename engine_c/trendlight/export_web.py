@@ -19,7 +19,7 @@ import pandas as pd
 
 from .common.paths import CANDIDATES_PARQUET, CURVES_PARQUET, ROOT
 from .config import label_keywords
-from .lifecycle.forecast import BACKTEST_PARQUET, FORECASTS_PARQUET, GREEN_MIN, RED_MAX, auc, signal_history
+from .lifecycle.forecast import BACKTEST_PARQUET, FORECASTS_PARQUET, GREEN_MIN, RED_MAX, auc, signal_history, forecast_batch, keep_probability
 from .lifecycle.halflife import halflife_days
 from .lifecycle.stage import rolling_stages
 
@@ -91,6 +91,11 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
                                  "median_ratio": round(float(f["median_ratio"].iloc[0]), 3),
                                  "signal": adjusted_signal(p, last["stage"])}
         k["signal"] = k.get("forecast", {}).get("signal", "grey")
+        # 지평별 유지 확률 (3·6·12개월) — 색은 6개월 기준, 숫자는 셋 다 보여준다
+        vv = base["value_norm"].to_numpy() * 100
+        _, q52 = forecast_batch([vv], 52)
+        bv = vv[-4:].mean()
+        k["horizons"] = {str(hz): round(float(keep_probability(q52[0], bv, h_from=hz - 4, h_to=hz)["p_keep"]), 3) for hz in (13, 26, 52)}
         # 타임머신: 4주 간격 과거 시점의 판정 (그 시점까지의 데이터만 사용)
         stages_by_idx = st["stage"].tolist()
         hist = signal_history(base["value_norm"].to_numpy() * 100, base["week"].dt.strftime("%Y-%m-%d").tolist())

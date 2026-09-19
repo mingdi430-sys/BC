@@ -33,15 +33,17 @@ function verdict(keyword, t, h) {
   const rel = peakSoFar > 0 ? cur / peakSoFar : null;
   const early = vals.slice(0, 26); const earlyMean = early.reduce((a, b) => a + b, 0) / Math.max(1, early.length);
   const hadFad = earlyMean > 0 && peakSoFar / earlyMean >= 3;
-  const head = p == null ? `${keyword}은(는) 아직 예측이 없습니다`
-    : signal === "green" ? `${keyword}, ${when} 들어가도 됩니다`
-    : signal === "amber" ? `${keyword}은(는) ${when} 보면 6개월 뒤가 불확실합니다`
-    : `${keyword}은(는) ${when} 시작하기엔 늦었습니다`;
-  const why1 = p == null ? "검색 곡선은 있지만 예측 모델 결과가 아직 없습니다" : `6개월 뒤에도 ${when === "지금" ? "지금" : "그때"} 수요의 70% 이상 남을 확률 ${p}%`;
+  const head = p == null ? `${keyword}, 아직 예측이 없습니다`
+    : signal === "green" ? `${keyword}, ${when} 보면 6개월 뒤에도 수요가 남을 가능성이 높습니다`
+    : signal === "amber" ? `${keyword}, ${when} 보면 6개월 뒤 수요가 불확실합니다`
+    : `${keyword}, ${when} 보면 6개월 뒤 수요가 줄어들 가능성이 높습니다`;
+  const risk = signal === "green" ? "유행 리스크 낮음" : signal === "amber" ? "유행 리스크 중간" : signal === "red" ? "유행 리스크 높음" : "";
+  const hz = !h && t.horizons ? ` · 3개월 ${Math.round(t.horizons["13"] * 100)}% / 6개월 ${Math.round(t.horizons["26"] * 100)}% / 12개월 ${Math.round(t.horizons["52"] * 100)}%` : "";
+  const why1 = p == null ? "검색 곡선은 있지만 예측 모델 결과가 아직 없습니다" : `${risk} · ${when === "지금" ? "지금" : "그때"} 수요의 70% 이상이 남을 확률${hz || ` 6개월 ${p}%`}`;
   let why2;
   if (stage === "stable") {
     if (rel != null && rel < 0.25 && hadFad) why2 = `유행이 꺼진 뒤 정점(${t.peak_week.slice(0, 7)})의 ${Math.round(rel * 100)}% 수준에서 안정, 유행 아이템이 아니라 일반 메뉴로 봐야 합니다`;
-    else if (hadFad) why2 = `한때 유행했지만 정점의 ${Math.round(rel * 100)}% 수준에서 수요가 남아 정착한 아이템, 유행 위험 없이 들어갈 수 있는 경우`;
+    else if (hadFad) why2 = `한때 유행했지만 정점의 ${Math.round(rel * 100)}% 수준에서 수요가 남아 정착한 아이템`;
     else why2 = "원래 급변 없이 유지되는 기본 수요, 유행 위험은 낮고 차별화는 다른 데서 만들어야 합니다";
   } else if (stage === "emerging") why2 = "검색이 막 늘기 시작한 초입, 가장 좋은 타이밍이지만 유행이 되는지는 아직 확정 아님";
   else if (stage === "surging") why2 = "최근 4주 검색이 50% 넘게 뛰었습니다, 이미 알려진 상태라 정점이 멀지 않을 수 있음";
