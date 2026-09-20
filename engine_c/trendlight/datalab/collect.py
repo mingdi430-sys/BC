@@ -171,7 +171,15 @@ class Collector:
             out["source_client"] = self.client.name
             cols = ["keyword", "base_keyword", "week", "value_raw", "value_norm", "gender", "age", "anchor",
                     "industry", "source", "source_client"]
-            out = out[cols].sort_values(["keyword", "gender", "age", "week"]).reset_index(drop=True)
+            out = out[cols]
+            if CURVES_PARQUET.exists():  # 기존 파일과 합친다 (같은 키워드·세그먼트는 이번 결과로 교체, 나머지는 유지)
+                old = pd.read_parquet(CURVES_PARQUET)
+                key = ["keyword", "gender", "age"]
+                done = out[key].drop_duplicates()
+                old = old.merge(done.assign(_new=1), on=key, how="left")
+                old = old[old["_new"].isna()].drop(columns="_new")
+                out = pd.concat([old[cols], out], ignore_index=True)
+            out = out.sort_values(["keyword", "gender", "age", "week"]).reset_index(drop=True)
             out.to_parquet(CURVES_PARQUET, index=False)
             log.info("curves.parquet 저장: %d행, 키워드 %d개", len(out), out["keyword"].nunique())
         return out

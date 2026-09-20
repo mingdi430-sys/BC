@@ -86,6 +86,10 @@ BC카드 업종은 뭉뚱그려져 있어(예: 일반한식) "내가 열려는 �
 - 시 단위는 하위 구의 세부 구성을 합산하고, 점포 자료가 없는 구는 제외하며 그 수를 표시합니다.
 - 검증: `node scripts/test-hierarchy.mjs`가 세부 업종 합계 = 업종별 점포 수를 검사합니다.
 
+## 트렌드 온디맨드 조회
+
+풀(`src/trendData.json`)에 없는 아이템을 검색하면 프런트가 `GET /trend/{키워드}` 를 호출한다. 백엔드는 `engine_c`의 `python -m trendlight.ondemand` 를 실행해 네이버에서 곡선(전체·성별·연령·5개 도시, 약 27회)을 받고 단계·반감기·TimesFM 예측을 계산해 같은 형식으로 돌려준다(첫 조회 20~30초, 이후 캐시). `backend/.env`에 `NAVER_CLIENT_ID/SECRET`, `ENGINE_C_ROOT`(engine_c 경로), `ENGINE_C_PYTHON`(그 venv의 python)이 필요하다.
+
 ## 챗봇 (LLM 분석 도우미)
 
 ### 2026-09-18 추가: 카드 데이터 자연어 질의 (text-to-SQL)

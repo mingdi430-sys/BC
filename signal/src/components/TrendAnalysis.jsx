@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { ArrowUpRight, ArrowRight, Search, ChartNoAxesCombined } from "lucide-react";
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
-  getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt,
-  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean,
+  getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
+  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending,
 } from "../trend";
 import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";
@@ -76,6 +76,8 @@ export function TrendAnalysis({ industry, selected }) {
   const [query, setQuery] = useState(initial), [keyword, setKeyword] = useState(getTrend(initial) ? initial : ""), [error, setError] = useState("");
   const [fullRange, setFullRange] = useState(false), [showAge, setShowAge] = useState(false);
   const atParam = new URLSearchParams(window.location.search).get("at");
+  const [fetching, setFetching] = useState("");
+  const API_BASE = import.meta.env.VITE_CHAT_API || "http://localhost:8000";
   const [tm, setTm] = useState(() => {
     const t0 = getTrend(initial); if (!t0 || !atParam || !t0.history) return null;
     const i = t0.history.findIndex((x) => x.week >= atParam); return i < 0 || i === t0.history.length - 1 ? null : i;
@@ -86,10 +88,23 @@ export function TrendAnalysis({ industry, selected }) {
   const suggestions = industryKeywords.length ? industryKeywords : trendKeywords.slice(0, 8);
   const region = resolveRegion(getRecords(industry), selected);
 
-  function search(value) {
+  async function search(value) {
     const clean = value.trim();
     if (!clean) { setError("분석할 아이템을 입력해주세요."); return; }
-    if (!getTrend(clean)) { setError(`'${clean}'의 검색 곡선이 아직 없습니다. 급등 후보는 다음 수집에서 추가됩니다.`); return; }
+    if (!getTrend(clean)) {
+      // 풀에 없으면 백엔드가 네이버에서 즉석 수집 (20~30초)
+      setError(""); setFetching(clean);
+      try {
+        const q = industry ? `?industry=${encodeURIComponent(industry.replace(/\s+/g, ""))}` : "";
+        const res = await fetch(`${API_BASE}/trend/${encodeURIComponent(clean)}${q}`);
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${res.status}`); }
+        const data = await res.json();
+        registerTrend(clean, data.entry);
+      } catch (e) {
+        setFetching(""); setError(`'${clean}' 곡선을 받아오지 못했습니다 (${e.message}). 백엔드가 켜져 있고 네이버 키가 있어야 합니다.`); return;
+      }
+      setFetching("");
+    }
     setKeyword(clean); setQuery(clean); setError(""); setTm(null);
   }
 
@@ -107,7 +122,7 @@ export function TrendAnalysis({ industry, selected }) {
     const shown = t.all.map((x, i) => (i <= cutIdx ? x : null)).concat(pad);
     const fanLo = XW.map(() => null), fanHi = XW.map(() => null), fanMed = XW.map(() => null);
     const src = h ? h : fc ? { median: fc.median, q10: fc.q10, q90: fc.q90 } : null;
-    if (src) { fanMed[cutIdx] = t.all[cutIdx]; for (let k = 0; k < 26 && cutIdx + 1 + k < XW.length; k++) { fanLo[cutIdx + 1 + k] = src.q10[k]; fanHi[cutIdx + 1 + k] = src.q90[k]; fanMed[cutIdx + 1 + k] = src.median[k]; } }
+    if (src) { const ev = src.fan_every || 1; fanMed[cutIdx] = t.all[cutIdx]; for (let k = 0; k < src.median.length; k++) { const j = cutIdx + ev * (k + 1); if (j >= XW.length) break; fanLo[j] = src.q10[k]; fanHi[j] = src.q90[k]; fanMed[j] = src.median[k]; } }
     const actualAfter = h ? t.all.map((x, i) => (i > cutIdx ? x : null)).concat(pad) : null;
     const searchAge = ["2", "3", "4", "5", "6"].map((a) => ({ k: a, label: AGE_LABEL[a], v: recentMean(t.age[a]) }));
     const sTot = searchAge.reduce((s, r) => s + r.v, 0) || 1;
@@ -230,6 +245,7 @@ export function TrendAnalysis({ industry, selected }) {
         <button className="primary" type="submit">분석 <ArrowRight size={17} /></button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}
+      {fetching && <p className="tc-fetching" role="status">'{fetching}' 검색 곡선을 네이버에서 받아 판정하는 중입니다 (20~30초)…</p>}
       <div className="suggestions">
         <span>{industry ? `${industryLabel(shortIndustry(industry))} 아이템` : "아이템"}</span>
         {suggestions.map((k) => <button key={k} onClick={() => search(k)}>{k}<ArrowUpRight size={12} /></button>)}
@@ -238,6 +254,20 @@ export function TrendAnalysis({ industry, selected }) {
           {industryCandidates.map((c) => <button key={c.phrase} className={c.has_curve ? "" : "pending"} title={c.has_curve ? "" : "곡선 수집 예정"} onClick={() => search(c.phrase)}>{c.phrase}</button>)}
         </>}
       </div>
+      {!t && trending.length > 0 && (
+        <div className="tc-trending">
+          <div className="tc-block-h"><h4>지금 YouTube에서 뜨는 것</h4><small>최근 4주 영상 언급이 직전 8주 대비 2배 이상, 계속 오르는 명사구 · 기준 {trending[0].last_week}</small></div>
+          <div className="tc-trend-grid">
+            {trending.map((x) => (
+              <button key={x.phrase} className="tc-trend-card" onClick={() => search(x.phrase)} title="클릭하면 검색 곡선으로 판정">
+                <div className="tc-trend-top"><b>{x.phrase}</b><small>{x.industry}</small></div>
+                <div className="tc-spark">{x.spark.map((v, i) => <i key={i} style={{ height: `${Math.max(8, (v / Math.max(...x.spark, 1)) * 100)}%` }} />)}</div>
+                <div className="tc-trend-bot"><span>4주 {x.recent_sum}건 · ×{x.ratio.toFixed(1)}</span>{x.signal ? <span className="tc-sig" style={{ color: SIGNAL_COLOR[x.signal] }}>● {STAGE_LABEL[x.stage]}</span> : <span className="muted">클릭해 판정</span>}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {body || (
         <div className="trend-empty">
           <ChartNoAxesCombined size={28} />
