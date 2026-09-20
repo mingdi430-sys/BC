@@ -37,9 +37,7 @@ export function IndustryModal({ current, onClose, onSubmit }) {
       <button className="icon-button close" onClick={onClose} aria-label="닫기">
         <X size={20} />
       </button>
-      <span className="eyebrow">START YOUR EXPLORATION</span>
       <h2>어떤 업종을 분석할까요?</h2>
-      <p>관심 업종의 지역별 소비 흐름을 살펴보세요.</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -68,7 +66,6 @@ export function IndustryModal({ current, onClose, onSubmit }) {
           분석 시작 <ArrowRight size={17} />
         </button>
       </form>
-      <small>지역은 다음 화면의 지도에서 선택할 수 있어요.</small>
     </dialog>
   );
 }
