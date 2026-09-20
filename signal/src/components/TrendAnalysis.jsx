@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowUpRight, ArrowRight, Search, ChartNoAxesCombined } from "lucide-react";
+import { ArrowUpRight, ArrowRight, Search } from "lucide-react";
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
   getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
@@ -245,15 +245,7 @@ export function TrendAnalysis({ industry, selected }) {
           </div>
         </div>
       )}
-      {body || (
-        <div className="trend-empty">
-          <ChartNoAxesCombined size={28} />
-          <div>
-            <h3>아이템 하나를 골라보세요</h3>
-            <p>지금 들어가도 되는지, 6개월 뒤에도 수요가 남는지, 누가 어디서 찾는지</p>
-          </div>
-        </div>
-      )}
+      {body}
     </section>
   );
 }
