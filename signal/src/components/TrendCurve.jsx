@@ -10,7 +10,7 @@ function argmax(arr) {
 }
 
 // 주간 곡선 + (선택) 26주 예측 부채꼴 + (선택) 단계 띠. 모든 시리즈는 xweeks 인덱스 기준.
-export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = [], peakIdx = null, todayIdx = null, todayLabel = "오늘", compact = false }) {
+export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = [], peakIdx = null, todayIdx = null, todayLabel = "오늘", compact = false, refY = null, refLabel = "", refFrom = null }) {
   const [hover, setHover] = useState(null);
   const W = compact ? 400 : 900, H = h, m = { t: 16, r: 14, b: 26, l: 42 };
   const n = xweeks.length;
@@ -52,6 +52,10 @@ export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = 
         {peakIdx != null && peakIdx >= from && series[0].values[peakIdx] != null && <g>
           <circle cx={xs(peakIdx)} cy={ys(series[0].values[peakIdx])} r="5" fill={series[0].color} stroke="#fff" strokeWidth="2" />
           <text x={xs(peakIdx) + (xs(peakIdx) > W - 110 ? -8 : 8)} y={ys(series[0].values[peakIdx]) - 8} textAnchor={xs(peakIdx) > W - 110 ? "end" : "start"} className="axis" fontWeight="600">정점 {xweeks[peakIdx].slice(0, 7)}</text>
+        </g>}
+        {refY != null && refFrom != null && <g>
+          <line x1={xs(refFrom)} x2={xs(n - 1)} y1={ys(refY)} y2={ys(refY)} stroke="#7e8ea8" strokeDasharray="3 3" strokeWidth="1.2" />
+          <text x={xs(n - 1)} y={ys(refY) - 5} textAnchor="end" className="axis" fontWeight="600">{refLabel}</text>
         </g>}
         {todayIdx != null && <g><line x1={xs(todayIdx)} x2={xs(todayIdx)} y1={m.t} y2={H - m.b} stroke="#91a1bb" strokeDasharray="4 4" /><text x={xs(todayIdx) + 4} y={m.t + 10} className="forecast-label">{todayLabel}</text></g>}
         {hover != null && <line x1={xs(hover)} x2={xs(hover)} y1={m.t} y2={H - m.b} stroke="#7e8ea8" strokeDasharray="2 3" />}
