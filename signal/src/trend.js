@@ -36,10 +36,14 @@ function shapeScore(e) {
   const s = v.slice().sort((a, b) => a - b), med = s[Math.floor(s.length / 2)] || 1e-9;
   return Math.max(...v) / med;
 }
+// 시연용 우선 순서 (풀에 있는 것만 씀), 모자라면 곡선 모양 점수로 채움
+const SHOWCASE = ["탕후루", "두바이 초콜릿", "두쫀쿠", "버터떡", "마라탕", "소금빵", "약과", "비빔밥", "초코바게트", "황치즈", "크로플", "오마카세", "마라샹궈", "닭갈비"];
 export function featuredKeywords(limit = 10, pool = trendKeywords) {
-  const ranked = pool.map((k) => ({ k, e: source.keywords[k], sc: shapeScore(source.keywords[k]) }))
+  const pre = SHOWCASE.filter((k) => pool.includes(k) && source.keywords[k]).slice(0, limit);
+  if (pre.length >= limit) return pre;
+  const ranked = pool.filter((k) => !pre.includes(k)).map((k) => ({ k, e: source.keywords[k], sc: shapeScore(source.keywords[k]) }))
     .filter((x) => x.e && x.sc >= 3 && k_ok(x.k)).sort((a, b) => b.sc - a.sc);
-  const out = [], seen = { green: 0, amber: 0, red: 0 };
+  const out = [...pre], seen = { green: 0, amber: 0, red: 0 };
   for (const x of ranked) { if (out.length >= limit) break; const sig = x.e.signal || "amber"; if (seen[sig] >= Math.ceil(limit / 2)) continue; seen[sig]++; out.push(x.k); }
   for (const x of ranked) { if (out.length >= limit) break; if (!out.includes(x.k)) out.push(x.k); }
   return out;
