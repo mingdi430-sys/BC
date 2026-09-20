@@ -69,7 +69,7 @@ export default function App() {
         </nav>
       </header>
       <main>
-        <div className={`app-layout ${industry ? "" : "no-chat"}`}>
+        <div className={`app-layout ${industry && view === "commercial" ? "" : "no-chat"}`}>
           {view === "commercial" ? (
             <CommercialAnalysis
               industry={industry}
@@ -86,7 +86,7 @@ export default function App() {
           ) : (
             <TrendAnalysis industry={industry} selected={selected} />
           )}
-          {industry ? (
+          {industry && view === "commercial" ? (
             <ChatPanel
               industry={industry}
               setIndustry={chooseIndustry}
