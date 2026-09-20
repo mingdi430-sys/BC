@@ -2361,10 +2361,7 @@ footer .signal-mark i {
 .suggestions.candidates { margin-top: 10px; }
 .suggestions.candidates button small { margin-left: 6px; font-size: 10px; color: #7e8ea8; }
 .suggestions.candidates button.pending { border-style: dashed; color: #7e8ea8; }
-.trend-verdict { display: flex; align-items: flex-start; gap: 22px; padding: 22px 26px; border-radius: 14px; background: #f4f7fc; border-left: 6px solid #98a4ac; margin-bottom: 28px; }
-.trend-verdict[data-signal="green"] { border-left-color: #1e9c58; }
-.trend-verdict[data-signal="amber"] { border-left-color: #d99a06; }
-.trend-verdict[data-signal="red"] { border-left-color: #d4413a; }
+.trend-verdict { display: flex; align-items: flex-start; gap: 22px; padding: 22px 26px; border-radius: 14px; background: #f4f7fc; margin-bottom: 28px; }
 .trend-verdict h3 { font-size: 22px; margin: 4px 0 6px; line-height: 1.35; }
 .trend-verdict p { font-size: 13px; color: #6b7e9b; margin: 0; max-width: 70ch; }
 .signal-lamp { display: grid; gap: 6px; background: #1b2229; border-radius: 12px; padding: 8px; flex: none; }
@@ -2483,8 +2480,7 @@ footer .signal-mark i {
 
 /* 현재 → 3개월 → 6개월 */
 .tc-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0 0; }
-.tc-step { background: #fff; border: 1px solid #e3e8ef; border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; align-content: start; border-top-width: 3px; }
-.tc-step[data-color="green"] { border-top-color: #1E9C58; } .tc-step[data-color="amber"] { border-top-color: #D99A06; } .tc-step[data-color="red"] { border-top-color: #D4413A; } .tc-step[data-color="grey"] { border-top-color: #98A4AC; }
+.tc-step { background: #fff; border: 1px solid #e3e8ef; border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; align-content: start; }
 .tc-step small { font-size: 11px; color: #7e8ea8; }
 .tc-step b { display: inline-flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; color: #202d43; letter-spacing: -0.5px; }
 .tc-step b i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
@@ -2568,3 +2564,15 @@ footer .signal-mark i {
   height: 3px;
   background: #aab6c8;
 }
+
+/* 신호색은 띠 대신 옅은 그라데이션으로 */
+.trend-verdict { background: linear-gradient(135deg, #f7f9fc 0%, #f1f4f9 100%); }
+.trend-verdict[data-signal="green"] { background: linear-gradient(135deg, #eef8f1 0%, #f4f7fc 55%, #f7f9fc 100%); }
+.trend-verdict[data-signal="amber"] { background: linear-gradient(135deg, #fbf5e6 0%, #f4f7fc 55%, #f7f9fc 100%); }
+.trend-verdict[data-signal="red"]   { background: linear-gradient(135deg, #fbecec 0%, #f4f7fc 55%, #f7f9fc 100%); }
+.tc-step { border: 1px solid #e6eaf1; background: #fff; }
+.tc-step[data-color="green"] { background: linear-gradient(180deg, #f1faf4 0%, #ffffff 60%); }
+.tc-step[data-color="amber"] { background: linear-gradient(180deg, #fdf6e7 0%, #ffffff 60%); }
+.tc-step[data-color="red"]   { background: linear-gradient(180deg, #fcefee 0%, #ffffff 60%); }
+.tc-step[data-color="grey"]  { background: linear-gradient(180deg, #f3f5f8 0%, #ffffff 60%); }
+.tc-step b i { width: 9px; height: 9px; }

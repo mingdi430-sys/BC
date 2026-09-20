@@ -8,7 +8,6 @@ import {
 import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";
 
-const PROVINCE_TO_CITY = { 서울특별시: "서울", 부산광역시: "부산", 대구광역시: "대구", 광주광역시: "광주", 대전광역시: "대전" };
 const STAGE_COLOR = { emerging: "#1E9C58", surging: "#D99A06", peak: "#D4413A", declining: "#D4413A", stable: "#dfe4ec" };
 
 function argmax(arr) { let bi = -1, bv = -Infinity; (arr || []).forEach((v, i) => { if (v != null && v > bv) { bv = v; bi = i; } }); return bi; }
@@ -135,11 +134,6 @@ export function TrendAnalysis({ industry, selected }) {
     }
     const topSearch = searchAge.slice().sort((a, b) => b.v - a.v)[0];
     const topCard = cardAge ? cardAge.slice().sort((a, b) => b.v - a.v)[0] : null;
-    const cities = ["서울", "부산", "대구", "광주", "대전"].filter((c) => t.region[c]);
-    const sp = t.region["서울"] ? argmax(t.region["서울"]) : null;
-    const lagRows = cities.map((c) => { const p = argmax(t.region[c]); return { c, peak: trendWeeks[p].slice(0, 7), lag: sp == null || c === "서울" ? 0 : p - sp }; });
-    const myCity = region ? PROVINCE_TO_CITY[region.province] : null;
-    const myLag = lagRows.find((r) => r.c === myCity);
     const strip = []; let i0 = 0;
     t.stages.forEach(([s, n]) => { const a = Math.max(i0, from), b = i0 + n; if (b > a) strip.push({ s, w: b - a, from: trendWeeks[a], to: trendWeeks[b - 1] }); i0 += n; });
 
@@ -189,8 +183,7 @@ export function TrendAnalysis({ industry, selected }) {
           <p className="forecast-note">실선 관측값, 음영 26주 예측 10~90% 구간, 점선 중앙값 · 아래 띠는 주별 단계(초록 태동, 노랑 급등, 빨강 정점·하락, 회색 안정) · 검색 지수는 쿠팡 평균=100 기준</p>
         </div>
 
-        <div className="tc-two">
-          <div className="tc-block">
+        <div className="tc-block">
             <div className="tc-block-h"><h4>누가 찾는가</h4></div>
             <p className="tc-lead">
               {`${keyword}을(를) 가장 많이 검색하는 세대는 ${topSearch.label}`}
@@ -205,21 +198,6 @@ export function TrendAnalysis({ industry, selected }) {
               </div>
             )}
           </div>
-          <div className="tc-block">
-            <div className="tc-block-h"><h4>어디서 먼저 뜨는가</h4></div>
-            {cities.length ? (
-              <>
-                <p className="tc-lead">
-                  {myLag && myCity !== "서울" ? `${myCity}은(는) 서울보다 ${myLag.lag > 0 ? `${myLag.lag}주 늦게` : myLag.lag < 0 ? `${-myLag.lag}주 먼저` : "같은 시기에"} 정점` : `서울 정점 ${lagRows[0]?.peak}, 다른 도시와의 차이는 아래`}
-                </p>
-                <div className="tc-lags">
-                  {lagRows.map((r) => <span key={r.c} className={r.c === myCity ? "on" : ""}>{r.c} <b>{r.c === "서울" ? "기준" : r.lag > 0 ? `+${r.lag}주` : r.lag < 0 ? `${r.lag}주` : "같음"}</b></span>)}
-                </div>
-              </>
-            ) : <p className="tc-lead">지역별 곡선은 아직 없습니다</p>}
-          </div>
-        </div>
-
         <details className="tc-details">
           <summary>어떻게 계산했나요</summary>
           <ul>
