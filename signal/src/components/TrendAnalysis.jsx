@@ -118,11 +118,13 @@ export function TrendAnalysis({ industry, selected }) {
     const peakIdx = trendWeeks.indexOf(t.peak_week);
     // 타임머신이면 그 시점까지만 보여주고, 그 시점의 예측 부채꼴을 얹는다
     const cutIdx = h ? h.idx : trendWeeks.length - 1;
-    const shown = t.all.map((x, i) => (i <= cutIdx ? x : null)).concat(pad);
+    const peakV = Math.max(...t.all.filter((x) => x != null), 1e-9);
+    const sc = (x) => (x == null ? null : (x / peakV) * 100);   // 정점 = 100 척도
+    const shown = t.all.map((x, i) => (i <= cutIdx ? sc(x) : null)).concat(pad);
     const fanLo = XW.map(() => null), fanHi = XW.map(() => null), fanMed = XW.map(() => null);
     const src = h ? h : fc ? { median: fc.median, q10: fc.q10, q90: fc.q90 } : null;
-    if (src) { const ev = src.fan_every || 1; fanMed[cutIdx] = t.all[cutIdx]; for (let k = 0; k < src.median.length; k++) { const j = cutIdx + ev * (k + 1); if (j >= XW.length) break; fanLo[j] = src.q10[k]; fanHi[j] = src.q90[k]; fanMed[j] = src.median[k]; } }
-    const actualAfter = h ? t.all.map((x, i) => (i > cutIdx ? x : null)).concat(pad) : null;
+    if (src) { const ev = src.fan_every || 1; fanMed[cutIdx] = sc(t.all[cutIdx]); for (let k = 0; k < src.median.length; k++) { const j = cutIdx + ev * (k + 1); if (j >= XW.length) break; fanLo[j] = sc(src.q10[k]); fanHi[j] = sc(src.q90[k]); fanMed[j] = sc(src.median[k]); } }
+    const actualAfter = h ? t.all.map((x, i) => (i > cutIdx ? sc(x) : null)).concat(pad) : null;
     const searchAge = ["2", "3", "4", "5", "6"].map((a) => ({ k: a, label: AGE_LABEL[a], v: recentMean(t.age[a]) }));
     const sTot = searchAge.reduce((s, r) => s + r.v, 0) || 1;
     searchAge.forEach((r) => { r.text = `${Math.round((r.v / sTot) * 100)}%`; });
@@ -166,8 +168,8 @@ export function TrendAnalysis({ industry, selected }) {
             ...(src ? [{ name: "예측 구간", color: SIGNAL_COLOR[v.signal] || "#3166ba", band: { lo: fanLo, hi: fanHi } },
               { name: "예측 중앙값", color: SIGNAL_COLOR[v.signal] || "#3166ba", values: fanMed, dash: true, width: 2.4 }] : []),
           ]} xweeks={XW} from={h ? Math.min(from, Math.max(0, cutIdx - 52)) : from} peakIdx={h ? null : peakIdx} todayIdx={cutIdx} todayLabel={h ? "판정 시점" : "오늘"} h={240}
-            refY={src ? (() => { const vals = t.all.slice(Math.max(0, cutIdx - 3), cutIdx + 1).filter((x) => x != null); return vals.length ? 0.7 * vals.reduce((a, b) => a + b, 0) / vals.length : null; })() : null}
-            refLabel="" refFrom={cutIdx} />
+            refY={src ? (() => { const vals = t.all.slice(Math.max(0, cutIdx - 3), cutIdx + 1).filter((x) => x != null); return vals.length ? sc(0.7 * vals.reduce((a, b) => a + b, 0) / vals.length) : null; })() : null}
+            refLabel="" refFrom={cutIdx} yfmt={(v) => Math.round(v)} ymax={100} />
           {H.length > 2 && (
             <div className="tc-tm">
               <label htmlFor="tm-slider">이 시점에 봤다면</label>
@@ -177,7 +179,7 @@ export function TrendAnalysis({ industry, selected }) {
               {h && <button className="tc-link" onClick={() => setTm(null)}>지금으로</button>}
             </div>
           )}
-          <p className="forecast-note">실선은 실제 검색 지수, 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간)이며 색은 신호(초록 안전 · 노랑 불확실 · 빨강 위험) · 가는 점선은 유지 기준(지금 수요의 70%) · 검색 지수는 쿠팡 평균=100</p>
+          <p className="forecast-note">실선은 실제 검색 지수, 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간)이며 색은 신호(초록 안전 · 노랑 불확실 · 빨강 위험) · 가는 점선은 유지 기준(지금 수요의 70%) · 세로축은 이 아이템의 정점을 100으로 둔 검색 지수</p>
         </div>
 
         <div className="tc-block">

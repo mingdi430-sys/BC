@@ -10,7 +10,7 @@ function argmax(arr) {
 }
 
 // 주간 곡선 + (선택) 26주 예측 부채꼴 + (선택) 단계 띠. 모든 시리즈는 xweeks 인덱스 기준.
-export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = [], peakIdx = null, todayIdx = null, todayLabel = "오늘", compact = false, refY = null, refLabel = "", refFrom = null }) {
+export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = [], peakIdx = null, todayIdx = null, todayLabel = "오늘", compact = false, refY = null, refLabel = "", refFrom = null, yfmt = idx, ymax = null }) {
   const [hover, setHover] = useState(null);
   const W = compact ? 400 : 900, H = h, m = { t: 16, r: 14, b: 26, l: 42 };
   const n = xweeks.length;
@@ -18,6 +18,7 @@ export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = 
   let max = 0;
   series.forEach((s) => (s.band ? s.band.hi : s.values).forEach((v, i) => { if (i >= from && v != null && v > max) max = v; }));
   if (!(max > 0)) max = 1;
+  if (ymax != null) max = Math.max(max, ymax);
   const ys = (v) => m.t + (1 - v / max) * (H - m.t - m.b);
   const ticks = [0, 1, 2, 3, 4].map((k) => (max * k) / 4);
   const years = [];
@@ -33,7 +34,7 @@ export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = 
         onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W; let i = Math.round(from + ((px - m.l) / (W - m.l - m.r)) * (n - 1 - from)); i = Math.max(from, Math.min(n - 1, i)); setHover(i); }}
         onMouseLeave={() => setHover(null)}>
         {bands.map((b, k) => b.to >= from && <rect key={k} x={xs(Math.max(b.from, from))} y={m.t} width={Math.max(0, xs(b.to) - xs(Math.max(b.from, from)))} height={H - m.t - m.b} fill={b.color} opacity=".14" />)}
-        {ticks.map((v, k) => <g key={k}><line x1={m.l} x2={W - m.r} y1={ys(v)} y2={ys(v)} stroke="#e0e5ed" strokeDasharray="3 4" /><text x={m.l - 6} y={ys(v) + 4} textAnchor="end" className="axis">{idx(v)}</text></g>)}
+        {ticks.map((v, k) => <g key={k}><line x1={m.l} x2={W - m.r} y1={ys(v)} y2={ys(v)} stroke="#e0e5ed" strokeDasharray="3 4" /><text x={m.l - 6} y={ys(v) + 4} textAnchor="end" className="axis">{yfmt(v)}</text></g>)}
         {years.map((i) => <g key={i}><line x1={xs(i)} x2={xs(i)} y1={m.t} y2={H - m.b} stroke="#e8ecf2" /><text x={xs(i) + 4} y={H - m.b + 15} className="axis">{xweeks[i].slice(0, 4)}</text></g>)}
         {series.map((s, k) => {
           if (s.band) {
@@ -61,7 +62,7 @@ export function Curve({ series, xweeks = trendWeeks, from = 0, h = 260, bands = 
         {hover != null && <line x1={xs(hover)} x2={xs(hover)} y1={m.t} y2={H - m.b} stroke="#7e8ea8" strokeDasharray="2 3" />}
       </svg>
       {hover != null && <div className="tc-tip" style={{ left: `${(xs(hover) / W) * 100}%` }}>
-        <b>{xweeks[hover]} 주</b>{series.filter((s) => !s.band).map((s, k) => <span key={k}>{s.name}: {s.values[hover] == null ? "–" : idx(s.values[hover])}</span>)}
+        <b>{xweeks[hover]} 주</b>{series.filter((s) => !s.band).map((s, k) => <span key={k}>{s.name}: {s.values[hover] == null ? "–" : yfmt(s.values[hover])}</span>)}
       </div>}
     </div>
   );
