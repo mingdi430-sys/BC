@@ -3,7 +3,7 @@ import { ArrowUpRight, ArrowRight, Search, ChartNoAxesCombined } from "lucide-re
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
   getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
-  STAGE_LABEL, SIGNAL_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean,
+  STAGE_LABEL, SIGNAL_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending,
 } from "../trend";
 import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";
@@ -263,6 +263,20 @@ export function TrendAnalysis({ industry, selected }) {
           {industryCandidates.map((c) => <button key={c.phrase} className={c.has_curve ? "" : "pending"} title={c.has_curve ? "" : "곡선 수집 예정"} onClick={() => search(c.phrase)}>{c.phrase}</button>)}
         </>}
       </div>
+      {!t && trending.length > 0 && (
+        <div className="tc-trending">
+          <div className="tc-block-h"><h4>지금 YouTube에서 뜨는 것</h4><small>최근 4주 영상 언급이 직전 8주 대비 2배 이상, 계속 오르는 명사구 · 기준 {trending[0].last_week}</small></div>
+          <div className="tc-trend-grid">
+            {trending.map((x) => (
+              <button key={x.phrase} className="tc-trend-card" onClick={() => search(x.phrase)} title="클릭하면 검색 곡선으로 판정">
+                <div className="tc-trend-top"><b>{x.phrase}</b><small>{x.industry}</small></div>
+                <div className="tc-spark">{x.spark.map((v, i) => <i key={i} style={{ height: `${Math.max(8, (v / Math.max(...x.spark, 1)) * 100)}%` }} />)}</div>
+                <div className="tc-trend-bot"><span>4주 {x.recent_sum}건 · ×{x.ratio.toFixed(1)}</span>{x.signal ? <span className="tc-sig" style={{ color: SIGNAL_COLOR[x.signal] }}>● {STAGE_LABEL[x.stage]}</span> : <span className="muted">클릭해 판정</span>}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {body || (
         <div className="trend-empty">
           <ChartNoAxesCombined size={28} />

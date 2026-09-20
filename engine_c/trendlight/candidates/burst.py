@@ -84,3 +84,34 @@ def run(top: int = TOP_PER_INDUSTRY) -> pd.DataFrame:
     log.info("candidates.parquet 저장: 급등 이벤트 %d → 후보 %d개 (업종 %d)", len(events), len(cands),
              cands["industry"].nunique() if len(cands) else 0)
     return cands
+
+
+# ---------- 완만한 상승 탐지 ("지금 뜨는 것") ----------
+RISE_RECENT = 4      # 최근 주 수
+RISE_BASE = 8        # 비교 기준 주 수
+RISE_RATIO = 2.0     # 최근 4주 평균 / 직전 8주 평균
+RISE_MIN_SUM = 10    # 최근 4주 합 최소
+
+
+def detect_rising(weekly: pd.DataFrame, recent: int = RISE_RECENT, base: int = RISE_BASE,
+                  ratio_min: float = RISE_RATIO, min_sum: int = RISE_MIN_SUM, asof: pd.Timestamp | None = None) -> pd.DataFrame:
+    """급등(z·×3)과 달리 몇 주에 걸쳐 서서히 오르는 명사구. 최근 recent주 평균이 직전 base주 평균의 ratio_min배 이상.
+    반환: phrase, industry, recent_sum, base_mean, ratio, last_week, spark(최근 12주 건수)"""
+    if weekly.empty:
+        return pd.DataFrame(columns=["phrase", "industry", "recent_sum", "base_mean", "ratio", "last_week", "spark"])
+    weekly = weekly.copy(); weekly["week"] = pd.to_datetime(weekly["week"])
+    asof = asof or weekly["week"].max()
+    grid = pd.date_range(asof - pd.Timedelta(weeks=recent + base - 1), asof, freq="7D")
+    agg = weekly.groupby(["phrase", "week"], as_index=False)["count"].sum()
+    ind_of = weekly.groupby(["phrase", "industry"])["count"].sum().reset_index().sort_values("count", ascending=False).drop_duplicates("phrase").set_index("phrase")["industry"]
+    rows = []
+    for ph, g in agg.groupby("phrase"):
+        s = g.set_index("week")["count"].reindex(grid, fill_value=0).astype(float)
+        rec, bas = s.iloc[-recent:], s.iloc[:-recent]
+        if rec.sum() < min_sum or rec.iloc[-1] == 0:
+            continue
+        r = rec.mean() / (bas.mean() + 0.25)
+        if r >= ratio_min and (rec.diff().dropna() >= 0).sum() >= recent - 2:  # 대체로 오르는 모양
+            rows.append({"phrase": ph, "industry": ind_of.get(ph), "recent_sum": int(rec.sum()), "base_mean": round(float(bas.mean()), 2),
+                         "ratio": round(float(r), 2), "last_week": asof.strftime("%Y-%m-%d"), "spark": [int(x) for x in s.iloc[-12:]]})
+    return pd.DataFrame(rows).sort_values(["ratio", "recent_sum"], ascending=False).reset_index(drop=True)

@@ -10,6 +10,7 @@ export function registerTrend(keyword, entry) {
   if (!trendKeywords.includes(keyword)) trendKeywords.push(keyword);
 }
 export const candidates = source.candidates;
+export const trending = source.trending || [];
 export const generatedAt = source.generated;
 
 export const STAGE_LABEL = { emerging: "태동", surging: "급등", peak: "정점", declining: "하락", stable: "안정" };

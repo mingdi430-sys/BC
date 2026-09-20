@@ -17,7 +17,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .common.paths import CANDIDATES_PARQUET, CURVES_PARQUET, ROOT
+from .common.paths import CANDIDATES_PARQUET, CURVES_PARQUET, ROOT, YOUTUBE_WEEKLY_PARQUET
+from .candidates.burst import detect_rising
 from .config import label_keywords
 from .lifecycle.forecast import BACKTEST_PARQUET, FORECASTS_PARQUET, GREEN_MIN, RED_MAX, auc, signal_history, forecast_batch, keep_probability
 from .lifecycle.halflife import halflife_days
@@ -122,6 +123,15 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
                                       "burst_week": pd.Timestamp(r.burst_start_week).strftime("%Y-%m-%d"),
                                       "z": None if pd.isna(r.max_z) else round(float(r.max_z), 1),
                                       "has_curve": r.phrase in out["keywords"]})
+    # 지금 뜨는 것 (YouTube 완만 상승 탐지, 곡선 유무와 무관)
+    out["trending"] = []
+    if YOUTUBE_WEEKLY_PARQUET.exists():
+        wk = pd.read_parquet(YOUTUBE_WEEKLY_PARQUET)
+        r = detect_rising(wk)
+        for row in r.head(12).itertuples():
+            out["trending"].append({"phrase": row.phrase, "industry": row.industry, "recent_sum": int(row.recent_sum), "ratio": float(row.ratio),
+                                    "spark": list(row.spark), "last_week": row.last_week, "has_curve": row.phrase in out["keywords"],
+                                    "signal": out["keywords"].get(row.phrase, {}).get("signal"), "stage": out["keywords"].get(row.phrase, {}).get("current", {}).get("stage")})
     meta = {"model": "TimesFM 2.5 (200M, zero-shot)", "horizon_weeks": 26, "keep_frac": 0.7,
             "green_min": GREEN_MIN, "red_max": RED_MAX, "anchor": "쿠팡",
             "curve_source": "네이버 검색어 트렌드 (NAVER API HUB), 주간, 2020~", "candidate_source": "YouTube Data API v3 검색 결과 제목"}
