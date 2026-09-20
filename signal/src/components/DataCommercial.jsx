@@ -317,7 +317,7 @@ export function CommercialAnalysis({
             <h1>
               지금 뜨는 트렌드, 얼마나 갈까?
               <br />
-              검색 데이터로 미리 읽는 상권의 신호.
+              검색 데이터로 미리 읽는 상권의 신호
             </h1>
             <button className="primary" onClick={() => setModal(true)}>
               분석 시작하기 <ArrowUpRight size={18} />
