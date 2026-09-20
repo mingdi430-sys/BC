@@ -14,10 +14,14 @@ import {
   topRegions,
   industryLabel,
   genderAgeFor,
+  densityMeta,
+  opportunityRegions,
+  subcategoryMix,
 } from "../data";
 import { GenderAgeChart, CountPriceChart } from "./DemoCharts";
 import { municipalityGroups, municipalityName } from "../data";
 import { MapPanel } from "./GeoMapPanel";
+import { SubcategoryMix } from "./SubcategoryMix";
 export function RegionInfoPanel({
   records,
   region,
@@ -26,6 +30,8 @@ export function RegionInfoPanel({
   province,
 }) {
   const [sort, setSort] = useState("amount");
+  const [onlyOpportunity, setOnlyOpportunity] = useState(false);
+  const opportunity = useMemo(() => opportunityRegions(records), [records]);
   if (!region)
     return (
       <aside className="region-info">
@@ -46,8 +52,25 @@ export function RegionInfoPanel({
             </button>
           ))}
         </div>
+        <label className="opportunity-toggle">
+          <input
+            type="checkbox"
+            checked={onlyOpportunity}
+            onChange={(e) => setOnlyOpportunity(e.target.checked)}
+          />
+          기회 후보만 보기 <small>({opportunity.regions.length}곳)</small>
+        </label>
+        {onlyOpportunity && (
+          <p className="opportunity-note">
+            6개월 결제금액 추세가 이 범위 평균보다 월 몇 %p 빠른지(오른쪽 숫자)와 점포당 결제금액 상위 25%
+            {opportunity.threshold != null &&
+              `(${money(Math.round(opportunity.threshold))} 이상)`}
+            인 지역입니다. 점포 수는 근사 매칭이며 자료 월이 적거나 점포
+            10개 미만인 지역은 제외했습니다. 참고용 필터이지 창업 가능 판정이 아닙니다.
+          </p>
+        )}
         <div className="region-list">
-          {[...records]
+          {(onlyOpportunity ? opportunity.regions : [...records])
             .sort(
               (a, b) =>
                 (b[sort] ?? -Infinity) - (a[sort] ?? -Infinity) ||
@@ -61,9 +84,15 @@ export function RegionInfoPanel({
                     {r.province} · {metricText(r, sort)}
                   </small>
                 </div>
-                <span className={r.growth < 0 ? "negative" : "green"}>
-                  {signed(r.growth)}
-                </span>
+                {onlyOpportunity && r.excessTrend != null ? (
+                  <span className="green">
+                    추세 +{(r.excessTrend * 100).toFixed(1)}%p
+                  </span>
+                ) : (
+                  <span className={r.growth < 0 ? "negative" : "green"}>
+                    {signed(r.growth)}
+                  </span>
+                )}
                 <ArrowRight size={14} />
               </button>
             ))}
@@ -123,6 +152,22 @@ export function RegionInfoPanel({
           </dd>
         </div>
         <div>
+          <dt>점포 수 (상가정보)</dt>
+          <dd>
+            {region.stores != null
+              ? `${region.stores.toLocaleString("ko-KR")}개`
+              : "자료 없음"}
+          </dd>
+        </div>
+        <div>
+          <dt>점포당 결제금액</dt>
+          <dd>
+            {region.amountPerStore != null
+              ? money(Math.round(region.amountPerStore))
+              : "산출 불가"}
+          </dd>
+        </div>
+        <div>
           <dt>자료가 있는 월</dt>
           <dd>
             {Object.keys(region.monthly).length} / {months.length}개월
@@ -143,23 +188,12 @@ export function RegionInfoPanel({
             </dd>
           </div>
         )}
-        <div>
-          <dt>업종 경쟁업체 수 (추정)</dt>
-          <dd>
-            {region.competitors != null
-              ? `${region.competitors.toLocaleString("ko-KR")}개`
-              : "자료 없음"}
-          </dd>
-        </div>
-        <div>
-          <dt>업체당 평균 매출 (추정)</dt>
-          <dd>{money(region.perCompetitorAmount)}</dd>
-        </div>
       </dl>
-      <p className="chart-caption">
-        경쟁업체 수는 소상공인시장진흥공단 상가업소정보(2026.06 기준)의 유사
-        업종을 근사 매칭한 값으로, BC카드 업종 분류와 정확히 일치하지
-        않습니다. 인구는 행정안전부 주민등록인구현황(2026.06) 기준입니다.
+      <p className="supply-note">
+        점포 수: 소상공인시장진흥공단 상가(상권)정보 {densityMeta.stdrYm.slice(0, 4)}.
+        {densityMeta.stdrYm.slice(4)} 기준. 업종 매칭은 근사치
+        {densityMeta.mapping[industry] ? ` (${densityMeta.mapping[industry]})` : ""}
+        이며, 점포당 결제금액이 높을수록 수요 대비 점포가 적다는 뜻입니다.
       </p>
       {region.lowSample && (
         <p className="low-sample-warn">
@@ -183,9 +217,6 @@ export function RegionInfoPanel({
         </p>
       </div>
       <TopRegionsTable records={records} selectedId={region.id} />
-      <a className="detail-link" href="#region-detail">
-        월별 상세 분석 보기 <ArrowRight size={15} />
-      </a>
     </aside>
   );
 }
@@ -212,6 +243,7 @@ function TopRegionsTable({ records, selectedId }) {
 }
 export function RegionDetailAnalysis({ region, industry }) {
   const genderAge = genderAgeFor(region, industry);
+  const mix = subcategoryMix(region, industry);
   return (
     <section className="region-detail" id="region-detail">
       <div className="detail-heading">
@@ -228,6 +260,12 @@ export function RegionDetailAnalysis({ region, industry }) {
         <h4>b. 이용 건수 / 결제 단가</h4>
         <CountPriceChart monthly={region.monthly} months={months} label={region.name} industry={industry} />
       </div>
+      {mix && (
+        <div className="demo-section">
+          <h4>c. 세부 업종별 점포 구성</h4>
+          <SubcategoryMix mix={mix} label={region.name} industry={industry} />
+        </div>
+      )}
     </section>
   );
 }
@@ -272,7 +310,6 @@ export function CommercialAnalysis({
   return (
     <section id="commercial">
       <SectionHeading
-        number="01"
         title="상권 분석"
         description="전국의 소비 흐름, 제공된 데이터의 지역 단위 그대로."
       />
@@ -294,7 +331,6 @@ export function CommercialAnalysis({
             <button className="primary" onClick={() => setModal(true)}>
               분석 시작하기 <ArrowUpRight size={18} />
             </button>
-            <small>지역명과 업종명은 제공된 CSV를 그대로 사용합니다.</small>
           </div>
           <div className="intro-art national-intro">
             <span className="eyebrow">FROM THE SOURCE</span>
@@ -304,7 +340,6 @@ export function CommercialAnalysis({
               <br />
               세종특별자치시
             </p>
-            <small>임의로 세분화하지 않는 지역 탐색</small>
           </div>
         </div>
       ) : (
@@ -313,7 +348,7 @@ export function CommercialAnalysis({
             <h3>
               {industryLabel(industry)} <span>상권 분석</span>
             </h3>
-            <button className="text-button" onClick={() => setModal(true)}>
+            <button className="change-industry-button" onClick={() => setModal(true)}>
               업종 변경 ↗
             </button>
           </div>

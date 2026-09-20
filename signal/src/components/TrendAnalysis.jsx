@@ -13,14 +13,6 @@ const STAGE_COLOR = { emerging: "#1E9C58", surging: "#D99A06", peak: "#D4413A", 
 
 function argmax(arr) { let bi = -1, bv = -Infinity; (arr || []).forEach((v, i) => { if (v != null && v > bv) { bv = v; bi = i; } }); return bi; }
 
-function SignalLamp({ signal }) {
-  return (
-    <span className="signal-lamp" aria-label={`신호 ${SIGNAL_LABEL[signal]}`}>
-      {["red", "amber", "green"].map((c) => <i key={c} style={c === signal ? { background: SIGNAL_COLOR[c], boxShadow: `0 0 10px ${SIGNAL_COLOR[c]}` } : undefined} />)}
-    </span>
-  );
-}
-
 // 결론 한 문장 + 근거 두 줄. h = 판정 시점(타임머신), null 이면 현재
 function verdict(keyword, t, h) {
   const now = !h || h.idx === trendWeeks.length - 1;
@@ -154,7 +146,6 @@ export function TrendAnalysis({ industry, selected }) {
     body = (
       <div className="trend-result" aria-live="polite">
         <div className="trend-verdict" data-signal={v.signal}>
-          <SignalLamp signal={v.signal} />
           <div>
             {h && <span className="tc-tm-badge">타임머신 · {h.week} 시점의 판정 (그 뒤 데이터는 안 봄)</span>}
             <h3>{v.head}</h3>
@@ -246,7 +237,7 @@ export function TrendAnalysis({ industry, selected }) {
 
   return (
     <section id="trend">
-      <SectionHeading number="02" title="트렌드 분석" description="이 아이템, 지금 들어가도 될까요?" />
+      <SectionHeading title="트렌드 분석" description="이 아이템, 지금 들어가도 될까요?" />
       <form className="search-form" onSubmit={(e) => { e.preventDefault(); search(query); }}>
         <Search size={23} />
         <input aria-label="관심 아이템" list="trend-keywords" placeholder="예: 비빔밥, 탕후루, 두바이 초콜릿" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -281,10 +272,9 @@ export function TrendAnalysis({ industry, selected }) {
         <div className="trend-empty">
           <ChartNoAxesCombined size={28} />
           <div>
-            <h3>아이템 하나를 고르면 신호등으로 답합니다</h3>
+            <h3>아이템 하나를 골라보세요</h3>
             <p>지금 들어가도 되는지, 6개월 뒤에도 수요가 남는지, 누가 어디서 찾는지</p>
           </div>
-          <span>SEARCH → SIGNAL</span>
         </div>
       )}
     </section>
