@@ -2965,3 +2965,8 @@ footer .brand-logo {
     position: static;
   }
 }
+
+/* 회색 작은 글씨 정리 */
+.tc-trend-bot { font-size: 11px; color: #8a97ab; }
+.tc-step small { font-size: 14px; }
+.tc-details { font-size: 12.5px; }

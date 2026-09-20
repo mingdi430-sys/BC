@@ -141,13 +141,13 @@ export function TrendAnalysis({ industry, selected }) {
       <div className="trend-result" aria-live="polite">
         <div className="trend-verdict" data-signal={v.signal}>
           <div>
-            {h && <span className="tc-tm-badge">타임머신 · {h.week} 시점의 판정 (그 뒤 데이터는 안 봄)</span>}
+            {h && <span className="tc-tm-badge">{h.week} 시점의 판정</span>}
             <h3>{v.head}</h3>
             {v.steps ? (
               <div className="tc-steps">
                 {v.steps.map((st, i) => (
                   <div key={st.label} className="tc-step" data-color={st.color}>
-                    <small>{st.label}{i > 0 ? " · 지금 수요의 70% 이상 남을 확률" : ""}</small>
+                    <small>{st.label}</small>
                     <b><i style={{ background: SIGNAL_COLOR[st.color] }} />{st.value}</b>
                     <span>{st.note}</span>
                   </div>
@@ -179,7 +179,6 @@ export function TrendAnalysis({ industry, selected }) {
               {h && <button className="tc-link" onClick={() => setTm(null)}>지금으로</button>}
             </div>
           )}
-          <p className="forecast-note">실선은 실제 검색 지수, 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간)이며 색은 신호(초록 안전 · 노랑 불확실 · 빨강 위험) · 가는 점선은 유지 기준(지금 수요의 70%) · 세로축은 이 아이템의 정점을 100으로 둔 검색 지수</p>
         </div>
 
         <div className="tc-block">
@@ -203,7 +202,9 @@ export function TrendAnalysis({ industry, selected }) {
             <li>지금 단계 <b>{STAGE_LABEL[t.current.stage]}</b> · 최근 4주 vs 직전 4주 {t.current.growth == null ? "–" : `${t.current.growth > 0 ? "+" : ""}${Math.round(t.current.growth * 100)}%`} · 역대 최고 대비 {t.current.rel == null ? "–" : `${Math.round(t.current.rel * 100)}%`} · 정점 {t.peak_week.slice(0, 7)}</li>
             {t.horizons && <li>유지 확률 3개월 {Math.round(t.horizons["13"] * 100)}% · 6개월 {Math.round(t.horizons["26"] * 100)}% · 12개월 {Math.round(t.horizons["52"] * 100)}%</li>}
             <li>반감기(정점 → 절반) {t.halflife_days == null ? "미도달" : `${t.halflife_days}일`}{t.expected_halflife_days ? ` (코리아헤럴드 기사 ${t.expected_halflife_days}일)` : ""}</li>
-            <li>검색 곡선: 네이버 검색어 트렌드 주간, 2020년~, 앵커 '쿠팡' 평균을 100으로 정규화</li>
+            <li>그래프: 실선은 실제 검색 지수(이 아이템의 정점=100), 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간)이며 색은 신호, 가는 점선은 유지 기준(지금 수요의 70%)</li>
+            <li>3개월·6개월 확률은 "지금 수요의 70% 이상이 남을 확률", 80% 이상 초록 · 50% 미만 빨강</li>
+            <li>검색 곡선: 네이버 검색어 트렌드 주간, 2020년~, 앵커 '쿠팡' 평균으로 정규화</li>
             <li>6개월 예측: {trendMeta.model}, 26주 분위수 예측에서 "지금의 70% 이상"일 확률을 읽음 · 라벨 백테스트 AUC {trendMeta.backtest?.auc}, 초록 판정의 실제 유지율 {trendMeta.backtest ? Math.round(trendMeta.backtest.green_precision * 100) : "–"}%</li>
             <li>단계는 매주 그 주까지의 데이터만으로 판정(미래 정보 없음) · 데이터 기준일 {generatedAt}</li>
           </ul>
@@ -224,22 +225,21 @@ export function TrendAnalysis({ industry, selected }) {
       {error && <p className="error" role="alert">{error}</p>}
       {fetching && <p className="tc-fetching" role="status">'{fetching}' 검색 곡선을 네이버에서 받아 판정하는 중입니다 (20~30초)…</p>}
       <div className="suggestions">
-        <span>{industry ? `${industryLabel(shortIndustry(industry))} 아이템` : "아이템"}</span>
         {suggestions.map((k) => <button key={k} onClick={() => search(k)}>{k}<ArrowUpRight size={12} /></button>)}
         {industryCandidates.length > 0 && <>
-          <span>요즘 뜨는 후보 (YouTube 자동 탐지)</span>
+          <span>요즘 뜨는 후보</span>
           {industryCandidates.map((c) => <button key={c.phrase} className={c.has_curve ? "" : "pending"} title={c.has_curve ? "" : "곡선 수집 예정"} onClick={() => search(c.phrase)}>{c.phrase}</button>)}
         </>}
       </div>
       {!t && trending.length > 0 && (
         <div className="tc-trending">
-          <div className="tc-block-h"><h4>지금 YouTube에서 뜨는 것</h4><small>최근 4주 영상 언급이 직전 8주 대비 2배 이상, 계속 오르는 명사구 · 기준 {trending[0].last_week}</small></div>
+          <div className="tc-block-h"><h4>지금 YouTube에서 뜨는 것</h4></div>
           <div className="tc-trend-grid">
             {trending.map((x) => (
               <button key={x.phrase} className="tc-trend-card" onClick={() => search(x.phrase)} title="클릭하면 검색 곡선으로 판정">
                 <div className="tc-trend-top"><b>{x.phrase}</b><small>{x.industry}</small></div>
                 <div className="tc-spark">{x.spark.map((v, i) => <i key={i} style={{ height: `${Math.max(8, (v / Math.max(...x.spark, 1)) * 100)}%` }} />)}</div>
-                <div className="tc-trend-bot"><span>4주 {x.recent_sum}건 · ×{x.ratio.toFixed(1)}</span>{x.signal ? <span className="tc-sig" style={{ color: SIGNAL_COLOR[x.signal] }}>● {STAGE_LABEL[x.stage]}</span> : <span className="muted">클릭해 판정</span>}</div>
+                <div className="tc-trend-bot"><span>4주 새 ×{x.ratio.toFixed(1)}</span>{x.signal && <span className="tc-sig" style={{ color: SIGNAL_COLOR[x.signal] }}>● {STAGE_LABEL[x.stage]}</span>}</div>
               </button>
             ))}
           </div>
