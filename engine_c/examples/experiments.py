@@ -62,11 +62,23 @@ def make_samples(curves: pd.DataFrame, keywords: list[str] | None = None) -> pd.
     return df
 
 
+N_FOLDS = 10
+
+
+def _group_folds(df: pd.DataFrame, n: int = N_FOLDS):
+    """키워드 단위 그룹 K겹 (같은 키워드의 시점이 학습·평가에 같이 들어가지 않음). 키워드가 적으면 leave-one-keyword-out."""
+    kws = np.array(sorted(df["keyword"].unique()))
+    if len(kws) <= n:
+        return [[k] for k in kws]
+    rng = np.random.default_rng(0); rng.shuffle(kws)
+    return [list(x) for x in np.array_split(kws, n)]
+
+
 def loko(df: pd.DataFrame, make_model, feats: list[str]) -> np.ndarray:
-    """leave-one-keyword-out 예측 확률."""
+    """키워드 그룹 교차검증 예측 확률 (leave-keywords-out)."""
     pred = np.full(len(df), np.nan)
-    for kw in df["keyword"].unique():
-        tr, te = df["keyword"] != kw, df["keyword"] == kw
+    for group in _group_folds(df):
+        te = df["keyword"].isin(group); tr = ~te
         if df.loc[tr, "actual_keep"].nunique() < 2:
             continue
         m = make_model().fit(df.loc[tr, feats].to_numpy(), df.loc[tr, "actual_keep"].to_numpy())
@@ -74,7 +86,7 @@ def loko(df: pd.DataFrame, make_model, feats: list[str]) -> np.ndarray:
     return pred
 
 
-def loko_lstm(df: pd.DataFrame, epochs: int = 40) -> np.ndarray:
+def loko_lstm(df: pd.DataFrame, epochs: int = 15) -> np.ndarray:
     """최근 52주 시퀀스 → LSTM(32) → 유지 확률. 키워드 단위 leave-one-out."""
     import torch, torch.nn as nn
 
@@ -97,8 +109,8 @@ def loko_lstm(df: pd.DataFrame, epochs: int = 40) -> np.ndarray:
     X = torch.tensor(np.stack(df["seq"].to_numpy())).unsqueeze(-1)  # [n, 52, 1]
     y = torch.tensor(df["actual_keep"].to_numpy(), dtype=torch.float32)
     pred = np.full(len(df), np.nan)
-    for kw in df["keyword"].unique():
-        te = (df["keyword"] == kw).to_numpy(); tr = ~te
+    for group in _group_folds(df):
+        te = df["keyword"].isin(group).to_numpy(); tr = ~te
         if df.loc[tr, "actual_keep"].nunique() < 2:
             continue
         lstm = nn.LSTM(1, 32, batch_first=True); head = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
@@ -157,7 +169,7 @@ def main():
         df = df.merge(d2[["keyword", "origin_week", "stack"]], on=["keyword", "origin_week"], how="left")
 
     models = [m for m in ["naive_trend", "logreg", "rf", "xgb", "lgbm", "hgb", "lstm", "timesfm", "stack"] if m in df]
-    print("\n전체 AUC (학습 모델은 leave-one-keyword-out):")
+    print("\n전체 AUC (학습 모델은 키워드 그룹 10겹 교차검증):")
     for m in models:
         ok = df.dropna(subset=[m])
         print(f"  {m:12s} AUC {auc(ok.actual_keep, ok[m]):.3f}  (n={len(ok)})")
