@@ -65,11 +65,10 @@ export function SubcategoryMix({ mix, label, industry }) {
           ))}
         </tbody>
       </table>
-      <p className="chart-caption">
-        소상공인시장진흥공단 상가(상권)정보 2026.06 기준 점포 수이며 결제금액 비중이 아닙니다. 업종 매칭은
-        근사치이고, 구성이 전국과 다르다는 것이 곧 기회나 위험을 뜻하지는 않습니다.
-        {mix.missing > 0 && ` 하위 지역 ${mix.missing}곳은 점포 자료가 없어 제외했습니다.`}
-      </p>
+      {mix.missing > 0 && (
+        <p className="chart-caption">하위 지역 {mix.missing}곳은 점포 자료가 없어 제외했습니다.</p>
+      )}
+>
     </>
   );
 }
