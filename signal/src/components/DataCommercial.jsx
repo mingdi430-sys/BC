@@ -88,10 +88,6 @@ export function RegionInfoPanel({
           {region.name} · {industryLabel(industry)}
         </h3>
         <p>선택 업종의 자료가 없습니다.</p>
-        <p className="muted">
-          지역은 CSV에 존재하지만 이 업종의 행은 없습니다. 결제금액 0으로
-          해석하지 않습니다.
-        </p>
         <button className="text-button" onClick={() => setSelected("")}>
           ← 지역 전체 보기
         </button>
@@ -167,33 +163,12 @@ export function RegionInfoPanel({
           </div>
         )}
       </dl>
-      <p className="supply-note">
-        점포 수: 소상공인시장진흥공단 상가(상권)정보 {densityMeta.stdrYm.slice(0, 4)}.
-        {densityMeta.stdrYm.slice(4)} 기준. 업종 매칭은 근사치
-        {densityMeta.mapping[industry] ? ` (${densityMeta.mapping[industry]})` : ""}
-        이며, 점포당 결제금액이 높을수록 수요 대비 점포가 적다는 뜻입니다.
-      </p>
       {region.lowSample && (
         <p className="low-sample-warn">
           <Info size={14} /> 6개월 중 자료가 있는 달이 2개월 이하로 표본이
           작습니다. 참고용으로만 활용하세요.
         </p>
       )}
-      <div className="insight">
-        <Info size={17} />
-        <p>
-          {region.growth == null
-            ? "최근 두 달을 비교할 수 있는 자료가 부족합니다."
-            : `6월 결제금액은 5월보다 ${Math.abs(region.growth).toFixed(1)}% ${region.growth >= 0 ? "증가" : "감소"}했습니다.`}{" "}
-          {region.isAggregate
-            ? "시 전체는 CSV의 하위 구 " +
-              region.memberIds.length +
-              "개를 합산합니다. 자료가 있는 구: " +
-              region.availableMembers +
-              "개."
-            : "지역은 CSV의 “" + region.name + "” 단위를 그대로 사용합니다."}
-        </p>
-      </div>
       <TopRegionsTable records={records} selectedId={region.id} />
     </aside>
   );
@@ -228,7 +203,6 @@ export function RegionDetailAnalysis({ region, industry }) {
         <h3>
           {region.province} {region.name} · {industryLabel(industry)}
         </h3>
-        <small>{period} · CSV 집계값</small>
       </div>
       <div className="demo-section">
         <h4>a. 성별·연령별</h4>
@@ -384,8 +358,8 @@ export function CommercialAnalysis({
                 </>
               )}
             </div>
-            <label>
-              표시 기준{" "}
+            <label className="area-field">
+              <span>표시 기준</span>
               <select
                 aria-label="지도 표시 기준"
                 value={metric}
