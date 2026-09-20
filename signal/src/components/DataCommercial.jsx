@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { ArrowRight, ArrowUpRight, MapPin, Info } from "lucide-react";
-import { SectionHeading, IndustryModal } from "./Shared";
+import { IndustryModal } from "./Shared";
 import {
   meta,
   industries,
@@ -15,7 +15,6 @@ import {
   industryLabel,
   genderAgeFor,
   densityMeta,
-  opportunityRegions,
   subcategoryMix,
 } from "../data";
 import { GenderAgeChart, CountPriceChart } from "./DemoCharts";
@@ -23,55 +22,42 @@ import { municipalityGroups, municipalityName } from "../data";
 import { MapPanel } from "./GeoMapPanel";
 import { SubcategoryMix } from "./SubcategoryMix";
 import { TrendHero } from "./TrendHero";
+const METRIC_HELP = {
+  amount: [
+    "기간 결제금액",
+    `${period} 6개월 동안 BC카드로 결제된 금액을 모두 더한 값이에요. 이 값이 큰 지역일수록 위에 나와요.`,
+  ],
+  count: [
+    "기간 결제 건수",
+    `${period} 6개월 동안 BC카드로 결제된 횟수를 모두 더한 값이에요. 금액이 아니라 결제가 몇 번 일어났는지 봐요.`,
+  ],
+  growth: [
+    "최근 월 증감률",
+    "가장 최근 달의 결제금액이 바로 앞 달보다 몇 % 늘거나 줄었는지예요. (이번 달 ÷ 지난달 − 1)",
+  ],
+  amountPerStore: [
+    "점포당 결제금액(근사)",
+    "기간 결제금액을 그 지역의 해당 업종 점포 수로 나눈 값이에요. 점포 수는 상가정보와 근사 매칭한 값이라 참고용이에요.",
+  ],
+};
 export function RegionInfoPanel({
   records,
   region,
   setSelected,
   industry,
   province,
+  sort,
 }) {
-  const [sort, setSort] = useState("amount");
-  const [onlyOpportunity, setOnlyOpportunity] = useState(false);
-  const opportunity = useMemo(() => opportunityRegions(records), [records]);
   if (!region)
     return (
       <aside className="region-info">
-        <span className="eyebrow">REGIONAL OVERVIEW</span>
         <h3>지역별 상권 현황</h3>
-        <p className="muted">
-          {province || "전국"} · {records.length}개 지역 · 업종 자료{" "}
-          {records.filter((r) => r.hasData).length}개
+        <p className="metric-note">
+          <b>{METRIC_HELP[sort][0]}순</b>
+          {METRIC_HELP[sort][1]}
         </p>
-        <div className="sort-tabs">
-          {Object.entries(metrics).map(([k, v]) => (
-            <button
-              className={k === sort ? "active" : ""}
-              onClick={() => setSort(k)}
-              key={k}
-            >
-              {v}순
-            </button>
-          ))}
-        </div>
-        <label className="opportunity-toggle">
-          <input
-            type="checkbox"
-            checked={onlyOpportunity}
-            onChange={(e) => setOnlyOpportunity(e.target.checked)}
-          />
-          기회 후보만 보기 <small>({opportunity.regions.length}곳)</small>
-        </label>
-        {onlyOpportunity && (
-          <p className="opportunity-note">
-            6개월 결제금액 추세가 이 범위 평균보다 월 몇 %p 빠른지(오른쪽 숫자)와 점포당 결제금액 상위 25%
-            {opportunity.threshold != null &&
-              `(${money(Math.round(opportunity.threshold))} 이상)`}
-            인 지역입니다. 점포 수는 근사 매칭이며 자료 월이 적거나 점포
-            10개 미만인 지역은 제외했습니다. 참고용 필터이지 창업 가능 판정이 아닙니다.
-          </p>
-        )}
         <div className="region-list">
-          {(onlyOpportunity ? opportunity.regions : [...records])
+          {[...records]
             .sort(
               (a, b) =>
                 (b[sort] ?? -Infinity) - (a[sort] ?? -Infinity) ||
@@ -85,22 +71,13 @@ export function RegionInfoPanel({
                     {r.province} · {metricText(r, sort)}
                   </small>
                 </div>
-                {onlyOpportunity && r.excessTrend != null ? (
-                  <span className="green">
-                    추세 +{(r.excessTrend * 100).toFixed(1)}%p
-                  </span>
-                ) : (
-                  <span className={r.growth < 0 ? "negative" : "green"}>
-                    {signed(r.growth)}
-                  </span>
-                )}
+                <span className={r.growth < 0 ? "negative" : "green"}>
+                  {signed(r.growth)}
+                </span>
                 <ArrowRight size={14} />
               </button>
             ))}
         </div>
-        <small className="list-note">
-          시 전체는 하위 구를 합산하고, 구·군은 원자료 단위로 표시합니다.
-        </small>
       </aside>
     );
   if (!region.hasData)
@@ -310,7 +287,6 @@ export function CommercialAnalysis({
       : "시·군";
   return (
     <section id="commercial">
-      {industry && <SectionHeading title="상권 분석" />}
       {!industry ? (
         <div className="hero">
           <div className="hero-copy">
@@ -329,7 +305,7 @@ export function CommercialAnalysis({
         <>
           <div className="analysis-title">
             <h3>
-              {industryLabel(industry)} <span>상권 분석</span>
+              {industryLabel(industry)}
             </h3>
             <button className="change-industry-button" onClick={() => setModal(true)}>
               업종 변경 ↗
@@ -423,10 +399,6 @@ export function CommercialAnalysis({
               </select>
             </label>
           </div>
-          <p className="source-strip">
-            {period} · CSV {meta.rowCount.toLocaleString("ko-KR")}행 집계 ·
-            금액은 원 단위 · 증감률은 6월/5월 대비
-          </p>
           <div className="explorer">
             <MapPanel
               records={all}
@@ -446,16 +418,13 @@ export function CommercialAnalysis({
               setSelected={setSelected}
               industry={industry}
               province={province}
+              sort={metric}
             />
           </div>
           {region?.hasData ? (
             <RegionDetailAnalysis region={region} industry={industry} />
           ) : (
-            <p className="selection-hint">
-              <Info size={14} />
-              시도 또는 지역을 선택해 분석하세요. CSV의 모든 지역을 표시하며,
-              선택 업종의 행이 없으면 자료 없음으로 구분합니다.
-            </p>
+            null
           )}
         </>
       )}
