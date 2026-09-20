@@ -134,8 +134,6 @@ export function TrendAnalysis({ industry, selected }) {
     }
     const topSearch = searchAge.slice().sort((a, b) => b.v - a.v)[0];
     const topCard = cardAge ? cardAge.slice().sort((a, b) => b.v - a.v)[0] : null;
-    const strip = []; let i0 = 0;
-    t.stages.forEach(([s, n]) => { const a = Math.max(i0, from), b = i0 + n; if (b > a) strip.push({ s, w: b - a, from: trendWeeks[a], to: trendWeeks[b - 1] }); i0 += n; });
 
     body = (
       <div className="trend-result" aria-live="polite">
@@ -177,10 +175,7 @@ export function TrendAnalysis({ industry, selected }) {
               {h && <button className="tc-link" onClick={() => setTm(null)}>지금으로</button>}
             </div>
           )}
-          <div className="tc-strip" aria-label="단계 이력">
-            {strip.map((s, k) => <i key={k} style={{ flex: s.w, background: STAGE_COLOR[s.s] }} title={`${STAGE_LABEL[s.s]} · ${s.from} ~ ${s.to}`} />)}
-          </div>
-          <p className="forecast-note">실선 관측값, 음영 26주 예측 10~90% 구간, 점선 중앙값 · 아래 띠는 주별 단계(초록 태동, 노랑 급등, 빨강 정점·하락, 회색 안정) · 검색 지수는 쿠팡 평균=100 기준</p>
+          <p className="forecast-note">실선은 실제 검색 지수, 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간) · 검색 지수는 쿠팡 평균=100 기준</p>
         </div>
 
         <div className="tc-block">
