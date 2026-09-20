@@ -754,9 +754,9 @@ dd {
   background: #586881;
 }
 #trend {
-  margin-top: 85px;
-  padding-top: 44px;
-  border-top: 1px solid #d5dce8;
+  margin-top: 28px;
+  padding-top: 0;
+  border-top: 0;
 }
 .search-form {
   display: flex;
