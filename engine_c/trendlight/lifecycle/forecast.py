@@ -130,22 +130,24 @@ def forecast_all(curves: pd.DataFrame, horizon: int = HORIZON) -> pd.DataFrame:
     return out
 
 
-def backtest_all(curves: pd.DataFrame, min_context: int = 26) -> tuple[pd.DataFrame, dict]:
-    """라벨·데모 키워드 롤링 백테스트 + 규칙 단계 비교. (표, 지표)"""
+def backtest_all(curves: pd.DataFrame, min_context: int = 26, sources: tuple = ("label", "demo", "candidate")) -> tuple[pd.DataFrame, dict]:
+    """롤링 백테스트 + 규칙 단계 비교. 기본은 라벨·데모·후보 전부(지역 조합 제외). (표, 지표)"""
     from .stage import rolling_stages
-    base = curves[(curves["gender"] == "all") & (curves["age"] == "all") & (curves["source"].isin(["label", "demo"]))]
+    base = curves[(curves["gender"] == "all") & (curves["age"] == "all") & (curves["source"].isin(sources))]
     parts = []
     for kw, g in base.groupby("keyword"):
         g = g.sort_values("week")
         bt = backtest_curve(g["value_norm"].to_numpy() * 100, list(g["week"].dt.strftime("%Y-%m-%d")), kw, min_context=min_context)
         if bt.empty:
             continue
-        st = rolling_stages(g).set_index("week")["stage"]
-        bt["rule_stage"] = [st.get(pd.Timestamp(w)) for w in bt["origin_week"]]
+        st = rolling_stages(g).drop_duplicates("week")
+        smap = dict(zip(st["week"].dt.strftime("%Y-%m-%d"), st["stage"]))
+        bt["rule_stage"] = [smap.get(str(w)[:10]) for w in bt["origin_week"]]
         parts.append(bt)
     bt = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
     if bt.empty:
         return bt, {}
+    bt["origin_week"] = bt["origin_week"].astype(str).str.slice(0, 10)
     bt.to_parquet(BACKTEST_PARQUET, index=False)
     ok = bt.dropna(subset=["actual_ratio"])
     rs = ok["rule_stage"].map({"declining": 0, "peak": 0.25, "surging": 0.5, "stable": 0.75, "emerging": 1.0})

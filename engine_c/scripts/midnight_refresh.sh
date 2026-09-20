@@ -34,6 +34,9 @@ EOF
 .venv/bin/python scripts/collect_rising.py >> "$LOG" 2>&1
 .venv/bin/python -m trendlight forecast --no-backtest >> "$LOG" 2>&1
 .venv/bin/python -m trendlight.export_web >> "$LOG" 2>&1
+# 모델 비교 갱신 (전체 곡선 백테스트 → 실험 표)
+.venv/bin/python -c "import pandas as pd; from trendlight.lifecycle.forecast import backtest_all; backtest_all(pd.read_parquet('data/processed/curves.parquet'))" >> "$LOG" 2>&1
+.venv/bin/python examples/experiments.py > reports/experiments_latest.txt 2>/dev/null
 export PATH=/disk1/shinji/tools/node/bin:$PATH
 cd /disk1/shinji/BC-team/signal && npx vite build --base ./ --outDir /tmp/claude-1000/-disk1/c9a05dce-5b4f-4987-a598-1df90fa387bb/scratchpad/team-dist --emptyOutDir >> "/disk1/shinji/BC/$LOG" 2>&1
 cd /disk1/shinji/BC-team && cp /disk1/shinji/BC/data/processed/{curves.parquet,forecasts.parquet,candidates.parquet,youtube_weekly.parquet} engine_c/data/processed/ \

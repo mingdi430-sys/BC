@@ -9,3 +9,4 @@ openpyxl
 pytest
 timesfm
 torch  # CPU 빌드면 충분: pip install torch --index-url https://download.pytorch.org/whl/cpu
+lightgbm

@@ -33,8 +33,10 @@ LABELS = ["크로플", "탕후루", "두바이 초콜릿", "두쫀쿠", "마라�
 FEATS = ["growth", "accel", "rel", "snr", "vol12", "weeks_since_peak", "log_level"]
 
 
-def make_samples(curves: pd.DataFrame) -> pd.DataFrame:
-    base = curves[(curves["gender"] == "all") & (curves["age"] == "all") & (curves["keyword"].isin(LABELS))]
+def make_samples(curves: pd.DataFrame, keywords: list[str] | None = None) -> pd.DataFrame:
+    base = curves[(curves["gender"] == "all") & (curves["age"] == "all") & (curves["source"].isin(["label", "demo", "candidate"]))]
+    if keywords:
+        base = base[base["keyword"].isin(keywords)]
     rows = []
     for kw, g in base.groupby("keyword"):
         g = g.sort_values("week")
@@ -123,7 +125,8 @@ def main():
     from sklearn.preprocessing import StandardScaler
 
     curves = pd.read_parquet(ROOT / "data/processed/curves.parquet")
-    df = make_samples(curves)
+    only_labels = "--labels" in sys.argv
+    df = make_samples(curves, LABELS if only_labels else None)
     bt = ROOT / "data/processed/timesfm_backtest.parquet"
     if bt.exists():
         fm = pd.read_parquet(bt)[["keyword", "origin_week", "p_keep"]].rename(columns={"p_keep": "timesfm"})
@@ -142,13 +145,18 @@ def main():
         df["xgb"] = loko(df, lambda: XGBClassifier(n_estimators=300, max_depth=3, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8, reg_lambda=1.0, verbosity=0), FEATS)
     except ImportError:
         print("xgboost 없음 → 건너뜀")
+    try:
+        from lightgbm import LGBMClassifier
+        df["lgbm"] = loko(df, lambda: LGBMClassifier(n_estimators=300, num_leaves=15, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8, reg_lambda=1.0, min_child_samples=20, verbose=-1), FEATS)
+    except ImportError:
+        print("lightgbm 없음 → 건너뜀")
     df["lstm"] = loko_lstm(df)
     if "timesfm" in df:
         d2 = df.dropna(subset=["timesfm"]).copy()
         d2["stack"] = loko(d2, logreg, FEATS + ["timesfm"])
         df = df.merge(d2[["keyword", "origin_week", "stack"]], on=["keyword", "origin_week"], how="left")
 
-    models = [m for m in ["naive_trend", "logreg", "rf", "xgb", "hgb", "lstm", "timesfm", "stack"] if m in df]
+    models = [m for m in ["naive_trend", "logreg", "rf", "xgb", "lgbm", "hgb", "lstm", "timesfm", "stack"] if m in df]
     print("\n전체 AUC (학습 모델은 leave-one-keyword-out):")
     for m in models:
         ok = df.dropna(subset=[m])
@@ -158,11 +166,17 @@ def main():
     for m in models:
         ok = pos.dropna(subset=[m])
         print(f"  {m:12s} AUC {auc(ok.actual_keep, ok[m]):.3f}  (n={len(ok)})")
+    lab = df[df.keyword.isin(LABELS)]
+    if len(lab) and len(lab) < len(df):
+        print("\n라벨 14개 + 비빔밥만:")
+        for m in models:
+            ok = lab.dropna(subset=[m])
+            print(f"  {m:12s} AUC {auc(ok.actual_keep, ok[m]):.3f}  (n={len(ok)})")
     print("\n키워드별 AUC:")
     hdr = "  " + "키워드".ljust(9) + "".join(m.rjust(12) for m in models)
     print(hdr)
     for kw, g in df.groupby("keyword"):
-        if g.actual_keep.nunique() < 2:
+        if g.actual_keep.nunique() < 2 or (not only_labels and kw not in LABELS):
             continue
         print("  " + kw.ljust(9) + "".join(f"{auc(g.dropna(subset=[m]).actual_keep, g.dropna(subset=[m])[m]):12.2f}" if g.dropna(subset=[m]).actual_keep.nunique() > 1 else "           –" for m in models))
     # 로지스틱 계수 (전체 학습, 해석용)
