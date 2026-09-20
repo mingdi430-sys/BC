@@ -3,12 +3,11 @@ import { ArrowUpRight, ArrowRight, Search, ChartNoAxesCombined } from "lucide-re
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
   getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
-  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending,
+  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending, featuredKeywords,
 } from "../trend";
 import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";
 
-const PROVINCE_TO_CITY = { 서울특별시: "서울", 부산광역시: "부산", 대구광역시: "대구", 광주광역시: "광주", 대전광역시: "대전" };
 const STAGE_COLOR = { emerging: "#1E9C58", surging: "#D99A06", peak: "#D4413A", declining: "#D4413A", stable: "#dfe4ec" };
 
 function argmax(arr) { let bi = -1, bv = -Infinity; (arr || []).forEach((v, i) => { if (v != null && v > bv) { bv = v; bi = i; } }); return bi; }
@@ -85,7 +84,7 @@ export function TrendAnalysis({ industry, selected }) {
   const t = keyword ? getTrend(keyword) : null;
   const industryKeywords = industry ? keywordsForIndustry(industry) : [];
   const industryCandidates = industry ? candidatesForIndustry(industry, 8) : [];
-  const suggestions = industryKeywords.length ? industryKeywords : trendKeywords.slice(0, 8);
+  const suggestions = industryKeywords.length ? featuredKeywords(8, industryKeywords) : featuredKeywords(10);
   const region = resolveRegion(getRecords(industry), selected);
 
   async function search(value) {
@@ -119,11 +118,13 @@ export function TrendAnalysis({ industry, selected }) {
     const peakIdx = trendWeeks.indexOf(t.peak_week);
     // 타임머신이면 그 시점까지만 보여주고, 그 시점의 예측 부채꼴을 얹는다
     const cutIdx = h ? h.idx : trendWeeks.length - 1;
-    const shown = t.all.map((x, i) => (i <= cutIdx ? x : null)).concat(pad);
+    const peakV = Math.max(...t.all.filter((x) => x != null), 1e-9);
+    const sc = (x) => (x == null ? null : (x / peakV) * 100);   // 정점 = 100 척도
+    const shown = t.all.map((x, i) => (i <= cutIdx ? sc(x) : null)).concat(pad);
     const fanLo = XW.map(() => null), fanHi = XW.map(() => null), fanMed = XW.map(() => null);
     const src = h ? h : fc ? { median: fc.median, q10: fc.q10, q90: fc.q90 } : null;
-    if (src) { const ev = src.fan_every || 1; fanMed[cutIdx] = t.all[cutIdx]; for (let k = 0; k < src.median.length; k++) { const j = cutIdx + ev * (k + 1); if (j >= XW.length) break; fanLo[j] = src.q10[k]; fanHi[j] = src.q90[k]; fanMed[j] = src.median[k]; } }
-    const actualAfter = h ? t.all.map((x, i) => (i > cutIdx ? x : null)).concat(pad) : null;
+    if (src) { const ev = src.fan_every || 1; fanMed[cutIdx] = sc(t.all[cutIdx]); for (let k = 0; k < src.median.length; k++) { const j = cutIdx + ev * (k + 1); if (j >= XW.length) break; fanLo[j] = sc(src.q10[k]); fanHi[j] = sc(src.q90[k]); fanMed[j] = sc(src.median[k]); } }
+    const actualAfter = h ? t.all.map((x, i) => (i > cutIdx ? sc(x) : null)).concat(pad) : null;
     const searchAge = ["2", "3", "4", "5", "6"].map((a) => ({ k: a, label: AGE_LABEL[a], v: recentMean(t.age[a]) }));
     const sTot = searchAge.reduce((s, r) => s + r.v, 0) || 1;
     searchAge.forEach((r) => { r.text = `${Math.round((r.v / sTot) * 100)}%`; });
@@ -135,13 +136,6 @@ export function TrendAnalysis({ industry, selected }) {
     }
     const topSearch = searchAge.slice().sort((a, b) => b.v - a.v)[0];
     const topCard = cardAge ? cardAge.slice().sort((a, b) => b.v - a.v)[0] : null;
-    const cities = ["서울", "부산", "대구", "광주", "대전"].filter((c) => t.region[c]);
-    const sp = t.region["서울"] ? argmax(t.region["서울"]) : null;
-    const lagRows = cities.map((c) => { const p = argmax(t.region[c]); return { c, peak: trendWeeks[p].slice(0, 7), lag: sp == null || c === "서울" ? 0 : p - sp }; });
-    const myCity = region ? PROVINCE_TO_CITY[region.province] : null;
-    const myLag = lagRows.find((r) => r.c === myCity);
-    const strip = []; let i0 = 0;
-    t.stages.forEach(([s, n]) => { const a = Math.max(i0, from), b = i0 + n; if (b > a) strip.push({ s, w: b - a, from: trendWeeks[a], to: trendWeeks[b - 1] }); i0 += n; });
 
     body = (
       <div className="trend-result" aria-live="polite">
@@ -171,9 +165,11 @@ export function TrendAnalysis({ industry, selected }) {
           <Curve series={[
             { name: keyword, color: "#244986", values: shown, fill: true },
             ...(actualAfter ? [{ name: "실제 (그 뒤)", color: "#9aa8bd", values: actualAfter }] : []),
-            ...(src ? [{ name: "예측 구간", color: "#3166ba", band: { lo: fanLo, hi: fanHi } },
-              { name: "예측 중앙값", color: "#3166ba", values: fanMed, dash: true }] : []),
-          ]} xweeks={XW} from={h ? Math.min(from, Math.max(0, cutIdx - 52)) : from} peakIdx={h ? null : peakIdx} todayIdx={cutIdx} todayLabel={h ? "판정 시점" : "오늘"} h={240} />
+            ...(src ? [{ name: "예측 구간", color: SIGNAL_COLOR[v.signal] || "#3166ba", band: { lo: fanLo, hi: fanHi } },
+              { name: "예측 중앙값", color: SIGNAL_COLOR[v.signal] || "#3166ba", values: fanMed, dash: true, width: 2.4 }] : []),
+          ]} xweeks={XW} from={h ? Math.min(from, Math.max(0, cutIdx - 52)) : from} peakIdx={h ? null : peakIdx} todayIdx={cutIdx} todayLabel={h ? "판정 시점" : "오늘"} h={240}
+            refY={src ? (() => { const vals = t.all.slice(Math.max(0, cutIdx - 3), cutIdx + 1).filter((x) => x != null); return vals.length ? sc(0.7 * vals.reduce((a, b) => a + b, 0) / vals.length) : null; })() : null}
+            refLabel="" refFrom={cutIdx} yfmt={(v) => Math.round(v)} ymax={100} />
           {H.length > 2 && (
             <div className="tc-tm">
               <label htmlFor="tm-slider">이 시점에 봤다면</label>
@@ -183,14 +179,10 @@ export function TrendAnalysis({ industry, selected }) {
               {h && <button className="tc-link" onClick={() => setTm(null)}>지금으로</button>}
             </div>
           )}
-          <div className="tc-strip" aria-label="단계 이력">
-            {strip.map((s, k) => <i key={k} style={{ flex: s.w, background: STAGE_COLOR[s.s] }} title={`${STAGE_LABEL[s.s]} · ${s.from} ~ ${s.to}`} />)}
-          </div>
-          <p className="forecast-note">실선 관측값, 음영 26주 예측 10~90% 구간, 점선 중앙값 · 아래 띠는 주별 단계(초록 태동, 노랑 급등, 빨강 정점·하락, 회색 안정) · 검색 지수는 쿠팡 평균=100 기준</p>
+          <p className="forecast-note">실선은 실제 검색 지수, 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간)이며 색은 신호(초록 안전 · 노랑 불확실 · 빨강 위험) · 가는 점선은 유지 기준(지금 수요의 70%) · 세로축은 이 아이템의 정점을 100으로 둔 검색 지수</p>
         </div>
 
-        <div className="tc-two">
-          <div className="tc-block">
+        <div className="tc-block">
             <div className="tc-block-h"><h4>누가 찾는가</h4></div>
             <p className="tc-lead">
               {`${keyword}을(를) 가장 많이 검색하는 세대는 ${topSearch.label}`}
@@ -205,21 +197,6 @@ export function TrendAnalysis({ industry, selected }) {
               </div>
             )}
           </div>
-          <div className="tc-block">
-            <div className="tc-block-h"><h4>어디서 먼저 뜨는가</h4></div>
-            {cities.length ? (
-              <>
-                <p className="tc-lead">
-                  {myLag && myCity !== "서울" ? `${myCity}은(는) 서울보다 ${myLag.lag > 0 ? `${myLag.lag}주 늦게` : myLag.lag < 0 ? `${-myLag.lag}주 먼저` : "같은 시기에"} 정점` : `서울 정점 ${lagRows[0]?.peak}, 다른 도시와의 차이는 아래`}
-                </p>
-                <div className="tc-lags">
-                  {lagRows.map((r) => <span key={r.c} className={r.c === myCity ? "on" : ""}>{r.c} <b>{r.c === "서울" ? "기준" : r.lag > 0 ? `+${r.lag}주` : r.lag < 0 ? `${r.lag}주` : "같음"}</b></span>)}
-                </div>
-              </>
-            ) : <p className="tc-lead">지역별 곡선은 아직 없습니다</p>}
-          </div>
-        </div>
-
         <details className="tc-details">
           <summary>어떻게 계산했나요</summary>
           <ul>
