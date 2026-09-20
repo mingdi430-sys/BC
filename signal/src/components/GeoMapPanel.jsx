@@ -435,16 +435,6 @@ export function MapPanel({
           ))}
         </div>
       )}
-      <div className="geo-attribution">
-        경계 2026.04 · 단순화 적용 ·{" "}
-        <a
-          href="https://github.com/vuski/admdongkor"
-          target="_blank"
-          rel="noreferrer"
-        >
-          SGIS / vuski · CC BY 4.0
-        </a>
-      </div>
     </div>
   );
 }
