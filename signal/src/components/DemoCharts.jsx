@@ -112,7 +112,7 @@ export function CountPriceChart({ monthly, months, label, industry }) {
   const avgPrice = months.map((_, i) => (monthlyCnt[i] > 0 ? monthlyAmt[i] / monthlyCnt[i] : 0));
   const monthLabel = (m) => `${m.slice(2, 4)}년 ${m.slice(4)}월`;
 
-  const W = 480, H = 150, padL = 42, padR = 42, padT = 12, padB = 24;
+  const W = 480, H = 230, padL = 46, padR = 46, padT = 14, padB = 26;
   const chartW = W - padL - padR;
   const n = months.length;
   const gap = chartW / n;
@@ -195,43 +195,36 @@ export function CountPriceChart({ monthly, months, label, industry }) {
             <circle key={i} cx={p.x} cy={p.y} r="2.8" fill="#fff" stroke="#0FA5A5" strokeWidth="1.6" />
           ))}
         </svg>
-        <table className="demo-table">
+        <table className="demo-table demo-table-months">
           <thead>
             <tr>
-              <th>항목</th>
-              {months.map((m) => (
-                <th key={m}>{monthLabel(m)}</th>
-              ))}
+              <th>월</th>
+              <th>
+                <span className="dot" style={{ background: "#2554C7" }} />
+                이용건수<em>건</em>
+              </th>
+              <th>
+                <span className="dot" style={{ background: "#0FA5A5" }} />
+                결제단가<em>원</em>
+              </th>
+              <th>
+                <span className="dot" style={{ background: "#c2c7d2" }} />
+                결제금액<em>만원</em>
+              </th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>
-                <span className="dot" style={{ background: "#2554C7" }} />
-                이용건수
-              </td>
-              {monthlyCnt.map((v, i) => (
-                <td key={i}>{v.toLocaleString("ko-KR")}건</td>
-              ))}
-            </tr>
-            <tr>
-              <td>
-                <span className="dot" style={{ background: "#0FA5A5" }} />
-                결제단가
-              </td>
-              {avgPrice.map((v, i) => (
-                <td key={i}>{Math.round(v).toLocaleString("ko-KR")}원</td>
-              ))}
-            </tr>
-            <tr>
-              <td>
-                <span className="dot" style={{ background: "#c2c7d2" }} />
-                결제금액
-              </td>
-              {monthlyAmt.map((v, i) => (
-                <td key={i}>{money(v)}</td>
-              ))}
-            </tr>
+            {months.map((m, i) => (
+              <tr key={m}>
+                <td>
+                  <small>{m.slice(2, 4)}년</small>
+                  {Number(m.slice(4))}월
+                </td>
+                <td>{monthlyCnt[i].toLocaleString("ko-KR")}</td>
+                <td>{Math.round(avgPrice[i]).toLocaleString("ko-KR")}</td>
+                <td>{Math.round(monthlyAmt[i] / 10000).toLocaleString("ko-KR")}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
