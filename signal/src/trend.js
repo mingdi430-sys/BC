@@ -29,6 +29,23 @@ export const AGE_LABEL = { 1: "20대 이하", 2: "20대", 3: "30대", 4: "40대"
 
 export const normalizeName = (s) => (s || "").replace(/\s+/g, "");
 
+// 보여주기 좋은 아이템: 곡선에 뚜렷한 봉우리가 있는 것(정점/중앙값 비율) 우선, 신호색이 골고루 섞이게
+function shapeScore(e) {
+  const v = (e.all || []).filter((x) => x != null && x > 0);
+  if (v.length < 52) return 0;
+  const s = v.slice().sort((a, b) => a - b), med = s[Math.floor(s.length / 2)] || 1e-9;
+  return Math.max(...v) / med;
+}
+export function featuredKeywords(limit = 10, pool = trendKeywords) {
+  const ranked = pool.map((k) => ({ k, e: source.keywords[k], sc: shapeScore(source.keywords[k]) }))
+    .filter((x) => x.e && x.sc >= 3 && k_ok(x.k)).sort((a, b) => b.sc - a.sc);
+  const out = [], seen = { green: 0, amber: 0, red: 0 };
+  for (const x of ranked) { if (out.length >= limit) break; const sig = x.e.signal || "amber"; if (seen[sig] >= Math.ceil(limit / 2)) continue; seen[sig]++; out.push(x.k); }
+  for (const x of ranked) { if (out.length >= limit) break; if (!out.includes(x.k)) out.push(x.k); }
+  return out;
+}
+const k_ok = (k) => !/^(서울|부산|대구|광주|대전) /.test(k) && k.length >= 2 && k.length <= 8;
+
 export function getTrend(keyword) {
   return source.keywords[normalizeKey(keyword)] || null;
 }

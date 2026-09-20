@@ -3,7 +3,7 @@ import { ArrowUpRight, ArrowRight, Search, ChartNoAxesCombined } from "lucide-re
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
   getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
-  STAGE_LABEL, SIGNAL_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending,
+  STAGE_LABEL, SIGNAL_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending, featuredKeywords,
 } from "../trend";
 import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";
@@ -84,7 +84,7 @@ export function TrendAnalysis({ industry, selected }) {
   const t = keyword ? getTrend(keyword) : null;
   const industryKeywords = industry ? keywordsForIndustry(industry) : [];
   const industryCandidates = industry ? candidatesForIndustry(industry, 8) : [];
-  const suggestions = industryKeywords.length ? industryKeywords : trendKeywords.slice(0, 8);
+  const suggestions = industryKeywords.length ? featuredKeywords(8, industryKeywords) : featuredKeywords(10);
   const region = resolveRegion(getRecords(industry), selected);
 
   async function search(value) {
@@ -167,7 +167,7 @@ export function TrendAnalysis({ industry, selected }) {
               { name: "예측 중앙값", color: SIGNAL_COLOR[v.signal] || "#3166ba", values: fanMed, dash: true, width: 2.4 }] : []),
           ]} xweeks={XW} from={h ? Math.min(from, Math.max(0, cutIdx - 52)) : from} peakIdx={h ? null : peakIdx} todayIdx={cutIdx} todayLabel={h ? "판정 시점" : "오늘"} h={240}
             refY={src ? (() => { const vals = t.all.slice(Math.max(0, cutIdx - 3), cutIdx + 1).filter((x) => x != null); return vals.length ? 0.7 * vals.reduce((a, b) => a + b, 0) / vals.length : null; })() : null}
-            refLabel="유지 기준 (지금의 70%)" refFrom={cutIdx} />
+            refLabel="" refFrom={cutIdx} />
           {H.length > 2 && (
             <div className="tc-tm">
               <label htmlFor="tm-slider">이 시점에 봤다면</label>
@@ -177,7 +177,7 @@ export function TrendAnalysis({ industry, selected }) {
               {h && <button className="tc-link" onClick={() => setTm(null)}>지금으로</button>}
             </div>
           )}
-          <p className="forecast-note">실선은 실제 검색 지수, 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간)이며 색은 신호(초록 안전 · 노랑 불확실 · 빨강 위험) · 가는 점선은 유지 기준선(지금 수요의 70%) · 검색 지수는 쿠팡 평균=100</p>
+          <p className="forecast-note">실선은 실제 검색 지수, 점선과 음영은 앞으로 26주 예측(중앙값과 10~90% 구간)이며 색은 신호(초록 안전 · 노랑 불확실 · 빨강 위험) · 가는 점선은 유지 기준(지금 수요의 70%) · 검색 지수는 쿠팡 평균=100</p>
         </div>
 
         <div className="tc-block">
