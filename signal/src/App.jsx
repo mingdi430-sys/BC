@@ -40,13 +40,10 @@ export default function App() {
             setView("commercial");
           }}
         >
-          <span className="signal-mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <strong>신호등</strong>
-          <span className="brand-description">상권의 흐름을 읽는 신호</span>
+          <img className="brand-logo" src="/logo-icon.svg" alt="" aria-hidden="true" />
+          <strong>
+            Market<span>Signal</span>
+          </strong>
         </a>
         <nav>
           <a
@@ -70,10 +67,6 @@ export default function App() {
             트렌드 분석
           </a>
         </nav>
-        <span className="demo-badge">
-          <i />
-          공모전 DEMO
-        </span>
       </header>
       <main>
         <div className={`app-layout ${industry ? "" : "no-chat"}`}>
@@ -111,16 +104,13 @@ export default function App() {
       </main>
       <footer>
         <a className="brand" href="#">
-          <span className="signal-mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <strong>신호등</strong>
-          <span>창업의 다음 걸음, 데이터의 신호로.</span>
+          <img className="brand-logo" src="/logo-icon.svg" alt="" aria-hidden="true" />
+          <strong>
+            Market<span>Signal</span>
+          </strong>
         </a>
         <small>
-          © 2026 SINHODEUNG. Read the signals, understand the market.
+          © 2026 MarketSignal. Read the signals, understand the market.
         </small>
       </footer>
     </>
