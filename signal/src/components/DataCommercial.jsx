@@ -22,6 +22,7 @@ import { GenderAgeChart, CountPriceChart } from "./DemoCharts";
 import { municipalityGroups, municipalityName } from "../data";
 import { MapPanel } from "./GeoMapPanel";
 import { SubcategoryMix } from "./SubcategoryMix";
+import { TrendHero } from "./TrendHero";
 export function RegionInfoPanel({
   records,
   region,
@@ -309,38 +310,20 @@ export function CommercialAnalysis({
       : "시·군";
   return (
     <section id="commercial">
-      <SectionHeading
-        title="상권 분석"
-        description="전국의 소비 흐름, 제공된 데이터의 지역 단위 그대로."
-      />
+      {industry && <SectionHeading title="상권 분석" />}
       {!industry ? (
-        <div className="intro">
-          <div className="intro-copy">
-            <span className="pill">BC카드 공모전 CSV 기반</span>
+        <div className="hero">
+          <div className="hero-copy">
             <h1>
-              전국의 상권을,
+              지금 뜨는 트렌드, 얼마나 갈까?
               <br />
-              실제 소비 데이터로.
+              검색 데이터로 미리 읽는 상권의 신호.
             </h1>
-            <p>
-              {meta.provinceCount}개 시도 · {meta.regionCount}개 지역 ·{" "}
-              {industries.length}개 업종
-              <br />
-              {period}의 결제 흐름을 살펴보세요.
-            </p>
             <button className="primary" onClick={() => setModal(true)}>
               분석 시작하기 <ArrowUpRight size={18} />
             </button>
           </div>
-          <div className="intro-art national-intro">
-            <span className="eyebrow">FROM THE SOURCE</span>
-            <strong>시 · 군 · 구</strong>
-            <p>
-              강릉시 · 기장군 · 성남시 분당구
-              <br />
-              세종특별자치시
-            </p>
-          </div>
+          <TrendHero />
         </div>
       ) : (
         <>
