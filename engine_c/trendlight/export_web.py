@@ -128,6 +128,9 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
     if YOUTUBE_WEEKLY_PARQUET.exists():
         wk = pd.read_parquet(YOUTUBE_WEEKLY_PARQUET)
         r = detect_rising(wk)
+        failed_path = ROOT / "data/state/rising_failed.json"
+        failed = set(json.loads(failed_path.read_text())) if failed_path.exists() else set()
+        r = r[~r["phrase"].isin(failed)]   # 네이버 검색 이력이 없어 곡선을 못 만드는 말은 제외
         for row in r.head(12).itertuples():
             out["trending"].append({"phrase": row.phrase, "industry": row.industry, "recent_sum": int(row.recent_sum), "ratio": float(row.ratio),
                                     "spark": list(row.spark), "last_week": row.last_week, "has_curve": row.phrase in out["keywords"],
