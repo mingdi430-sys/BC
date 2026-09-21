@@ -22,6 +22,7 @@ from .candidates.burst import detect_rising
 from .config import label_keywords
 from .lifecycle.forecast import BACKTEST_PARQUET, FORECASTS_PARQUET, GREEN_MIN, RED_MAX, auc, signal_history, forecast_batch, keep_probability
 from .lifecycle.halflife import halflife_days
+from .lifecycle.similar import build_shapes, similar_to
 from .lifecycle.stage import rolling_stages
 
 REGIONS = ["서울", "부산", "대구", "광주", "대전"]
@@ -141,6 +142,18 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
                                       "burst_week": pd.Timestamp(r.burst_start_week).strftime("%Y-%m-%d"),
                                       "z": None if pd.isna(r.max_z) else round(float(r.max_z), 1),
                                       "has_curve": r.phrase in out["keywords"]})
+    # 닮은 과거 유행 (곡선을 정점 기준으로 맞춰 모양 비교)
+    base_all = curves[(curves["gender"] == "all") & (curves["age"] == "all")]
+    shapes = build_shapes(base_all, list(out["keywords"]))
+    for kw, k in out["keywords"].items():
+        sh = shapes.get(kw)
+        if not sh:
+            continue
+        k["shape"] = {"values": [None if np.isnan(x) else round(float(x), 1) for x in sh["values"]],
+                      "peak_week": sh["peak_week"], "weeks_since_peak": sh["weeks_since_peak"],
+                      "amp": round(float(sh["amp"]), 1), "pre": 26, "post": 26}
+        k["similar"] = similar_to(kw, shapes)
+
     # 지금 뜨는 것 (YouTube 완만 상승 탐지, 곡선 유무와 무관)
     out["trending"] = []
     if YOUTUBE_WEEKLY_PARQUET.exists():

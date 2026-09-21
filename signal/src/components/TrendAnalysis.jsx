@@ -54,6 +54,41 @@ function verdict(keyword, t, h) {
   return { head, why1, why2: why2 + guard, signal, steps };
 }
 
+// 정점을 0주에 맞춰 대상 곡선과 닮은 과거 사례를 겹쳐 그린다 (정점 = 100)
+function PeakOverlay({ shape, similar, keyword }) {
+  const W = 620, H = 200, m = { t: 14, r: 12, b: 26, l: 34 };
+  const pre = shape.pre ?? 26, post = shape.post ?? 26, n = pre + post + 1;
+  const x = (i) => m.l + (i / (n - 1)) * (W - m.l - m.r);
+  const y = (v) => m.t + (1 - v / 100) * (H - m.t - m.b);
+  const path = (vals) => {
+    let d = "", pen = false;
+    vals.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)} `; pen = true; });
+    return d;
+  };
+  const nowI = pre + Math.min(post, shape.weeks_since_peak);
+  const COLORS = ["#8fa3bf", "#a9bcd4", "#c2d0e2"];
+  return (
+    <svg className="tc" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="정점 기준 곡선 비교">
+      {[0, 50, 100].map((v) => (
+        <g key={v}>
+          <line x1={m.l} x2={W - m.r} y1={y(v)} y2={y(v)} stroke="#e0e5ed" strokeDasharray="3 4" />
+          <text x={m.l - 6} y={y(v) + 4} textAnchor="end" className="axis">{v}</text>
+        </g>
+      ))}
+      <line x1={x(pre)} x2={x(pre)} y1={m.t} y2={H - m.b} stroke="#b6c0d0" />
+      <text x={x(pre)} y={H - m.b + 15} textAnchor="middle" className="axis">정점</text>
+      <text x={x(0)} y={H - m.b + 15} className="axis">6개월 전</text>
+      <text x={x(n - 1)} y={H - m.b + 15} textAnchor="end" className="axis">6개월 후</text>
+      {similar.map((o, k) => <path key={o.keyword} d={path(o.values)} fill="none" stroke={COLORS[k] || "#c2d0e2"} strokeWidth="1.8" />)}
+      <path d={path(shape.values)} fill="none" stroke="#244986" strokeWidth="2.6" />
+      {shape.weeks_since_peak >= 0 && shape.weeks_since_peak <= post && shape.values[nowI] != null && (
+        <g><circle cx={x(nowI)} cy={y(shape.values[nowI])} r="4.5" fill="#244986" stroke="#fff" strokeWidth="2" />
+          <text x={x(nowI) + 7} y={y(shape.values[nowI]) - 7} className="axis" fontWeight="600">지금</text></g>
+      )}
+    </svg>
+  );
+}
+
 function AgeBars({ title, rows }) {
   const max = Math.max(...rows.map((r) => r.v), 1e-9);
   return (
@@ -180,6 +215,22 @@ export function TrendAnalysis({ industry, selected, goCommercial }) {
           )}
         </div>
 
+        {t.similar?.length > 0 && t.shape && (
+          <div className="tc-block">
+            <div className="tc-block-h"><h4>닮은 과거 유행</h4></div>
+            <p className="tc-lead">
+              {`${keyword}의 곡선은 ${t.similar.map((o) => o.keyword).join(", ")}과(와) 모양이 닮았습니다. `}
+              {`그 아이템들은 정점 6개월 뒤 ${t.similar.map((o) => `${Math.round(o.after6m * 100)}%`).join(", ")} 수준으로 남았습니다.`}
+            </p>
+            <PeakOverlay shape={t.shape} similar={t.similar} keyword={keyword} />
+            <div className="tc-legend">
+              <span><i style={{ background: "#244986" }} />{keyword}</span>
+              {t.similar.map((o, k) => (
+                <span key={o.keyword}><i style={{ background: ["#8fa3bf", "#a9bcd4", "#c2d0e2"][k] }} />{o.keyword}<small>{o.peak_week.slice(0, 7)} 정점 · 6개월 뒤 {Math.round(o.after6m * 100)}%</small></span>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="tc-block">
             <div className="tc-block-h">
               <h4>누가 찾는가</h4>
