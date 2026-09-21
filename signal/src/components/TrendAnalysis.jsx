@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { ArrowUpRight, ArrowRight, Search } from "lucide-react";
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
-  getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
-  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending, featuredKeywords, matchesIndustry,
+  getTrend, trendKeywords, trendWeeks, trendMeta, generatedAt, registerTrend,
+  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending, featuredKeywords,
 } from "../trend";
 import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";
@@ -82,9 +82,7 @@ export function TrendAnalysis({ industry, selected }) {
     const i = t0.history.findIndex((x) => x.week >= atParam); return i < 0 || i === t0.history.length - 1 ? null : i;
   }); // 타임머신: history 배열 인덱스, null = 현재
   const t = keyword ? getTrend(keyword) : null;
-  const industryKeywords = industry ? keywordsForIndustry(industry) : [];
-  const industryCandidates = industry ? candidatesForIndustry(industry, 8) : [];
-  const suggestions = industryKeywords.length ? featuredKeywords(8, industryKeywords) : featuredKeywords(10);
+  const suggestions = featuredKeywords(10);   // 트렌드 분석은 전국 기준, 업종으로 좁히지 않는다
   const region = resolveRegion(getRecords(industry), selected);
 
   async function search(value) {
@@ -143,6 +141,7 @@ export function TrendAnalysis({ industry, selected }) {
           <div>
             {h && <span className="tc-tm-badge">{h.week} 시점의 판정</span>}
             <h3>{v.head}</h3>
+            {t.industry && <span className="tc-tag">{industryLabel(t.industry)}</span>}
             {v.steps ? (
               <div className="tc-steps">
                 {v.steps.map((st, i) => (
@@ -226,10 +225,6 @@ export function TrendAnalysis({ industry, selected }) {
       {fetching && <p className="tc-fetching" role="status">'{fetching}' 검색 곡선을 네이버에서 받아 판정하는 중입니다 (20~30초)…</p>}
       <div className="suggestions">
         {suggestions.map((k) => <button key={k} onClick={() => search(k)}>{k}<ArrowUpRight size={12} /></button>)}
-        {industryCandidates.length > 0 && <>
-          <span>요즘 뜨는 후보</span>
-          {industryCandidates.map((c) => <button key={c.phrase} className={c.has_curve ? "" : "pending"} title={c.has_curve ? "" : "곡선 수집 예정"} onClick={() => search(c.phrase)}>{c.phrase}</button>)}
-        </>}
       </div>
       {!t && trending.length > 0 && (
         <div className="tc-trending">
