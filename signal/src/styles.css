@@ -3049,3 +3049,4 @@ footer .brand-logo {
 .tc-region-row b span { font-size: 12px; font-weight: 500; color: #6b7e9b; }
 .suggestions { flex-wrap: wrap; }
 .suggestions button { white-space: nowrap; }
+.tc-context > span.tc-context-empty { background: #f3f5f8; color: #6b7e9b; }

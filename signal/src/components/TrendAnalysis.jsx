@@ -238,12 +238,15 @@ export function TrendAnalysis({ industry, selected, goCommercial }) {
   return (
     <section id="trend">
       <SectionHeading title="트렌드 분석" description="이 아이템, 지금 들어가도 될까요?" />
-      {industry && (
-        <div className="tc-context">
+      <div className="tc-context">
+        {industry ? (<>
           <span>{region ? `${region.province} ${region.name} · ` : ""}{indName} 기준</span>
           <button className="tc-link" onClick={goCommercial}>{region ? "지역·업종 바꾸기" : "상권 분석에서 지역 고르기"}</button>
-        </div>
-      )}
+        </>) : (<>
+          <span className="tc-context-empty">지역·업종 미선택</span>
+          <button className="tc-link" onClick={goCommercial}>상권 분석에서 고르면 그 동네 상권이 함께 보입니다</button>
+        </>)}
+      </div>
       <form className="search-form" onSubmit={(e) => { e.preventDefault(); search(query); }}>
         <Search size={23} />
         <input aria-label="관심 아이템" list="trend-keywords" placeholder="예: 비빔밥, 탕후루, 두바이 초콜릿" value={query} onChange={(e) => setQuery(e.target.value)} />
