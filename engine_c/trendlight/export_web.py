@@ -23,6 +23,7 @@ from .config import label_keywords
 from .lifecycle.forecast import BACKTEST_PARQUET, FORECASTS_PARQUET, GREEN_MIN, RED_MAX, auc, signal_history, forecast_batch, keep_probability
 from .lifecycle.halflife import halflife_days
 from .lifecycle.similar import build_shapes, similar_to
+from .lifecycle.seasonality import seasonal_index
 from .lifecycle.stage import rolling_stages
 
 REGIONS = ["서울", "부산", "대구", "광주", "대전"]
@@ -153,6 +154,11 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
                       "peak_week": sh["peak_week"], "weeks_since_peak": sh["weeks_since_peak"],
                       "amp": round(float(sh["amp"]), 1), "pre": 26, "post": 26}
         k["similar"] = similar_to(kw, shapes)
+    for kw, k in out["keywords"].items():
+        g = base_all[base_all["keyword"] == kw].sort_values("week")
+        sea = seasonal_index(g["week"], g["value_norm"].to_numpy())
+        if sea:
+            k["seasonality"] = sea
 
     # 지금 뜨는 것 (YouTube 완만 상승 탐지, 곡선 유무와 무관)
     out["trending"] = []

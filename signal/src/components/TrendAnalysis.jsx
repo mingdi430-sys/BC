@@ -40,10 +40,19 @@ function verdict(keyword, t, h) {
   else if (stage === "peak") why2 = "성장이 멈추고 꺾이기 시작했습니다";
   else why2 = "검색이 최근 4주 연속 줄고 있습니다";
   const guard = p != null && signal === "amber" && (h ? h.p_keep : t.forecast.p_keep) < trendMeta.red_max ? " (예측은 비관적이지만 상승 구간이라 노랑으로 표시)" : "";
-  const nowLabel = stage === "stable" ? (rel != null && rel < 0.25 && hadFad ? "꺼진 유행" : hadFad ? "정착한 유행" : "기본 수요")
+  let nowLabel = stage === "stable" ? (rel != null && rel < 0.25 && hadFad ? "꺼진 유행" : hadFad ? "정착한 유행" : "기본 수요")
     : stage === "emerging" ? "유행 초입" : stage === "surging" ? "급등 중" : stage === "peak" ? "정점" : "하락 중";
-  const nowColor = stage === "emerging" ? "green" : stage === "surging" ? "amber" : stage === "peak" || stage === "declining" ? "red"
+  let nowColor = stage === "emerging" ? "green" : stage === "surging" ? "amber" : stage === "peak" || stage === "declining" ? "red"
     : (rel != null && rel < 0.25 && hadFad) ? "grey" : "green";
+  // 계절 아이템은 비수기에 낮은 것이 정상이라 "꺼진 유행"으로 읽히면 안 된다
+  const sea = t.seasonality;
+  if (!h && sea?.seasonal) {
+    const nowM = Number(trendWeeks[trendWeeks.length - 1].slice(5, 7));
+    const ni = Math.round(sea.index[nowM - 1]);
+    nowLabel = "계절 아이템";
+    nowColor = "green";
+    why2 = `${sea.peak_month}월이 성수기인 계절 아이템, 지금(${nowM}월)은 연평균의 ${ni}% 수준`;
+  }
   const sigOf = (pp) => (pp == null ? "grey" : pp >= trendMeta.green_min ? "green" : pp < trendMeta.red_max ? "red" : "amber");
   const pText = (pp) => (pp >= trendMeta.green_min ? "수요가 남을 가능성 높음" : pp < trendMeta.red_max ? "수요가 줄어들 가능성 높음" : "불확실");
   const steps = !h && t.horizons ? [
@@ -86,6 +95,26 @@ function PeakOverlay({ shape, similar, keyword }) {
           <text x={x(nowI) + 7} y={y(shape.values[nowI]) - 7} className="axis" fontWeight="600">지금</text></g>
       )}
     </svg>
+  );
+}
+
+// 월별 계절 지수 (100 = 연평균). 지금 달과 6개월 뒤 달을 강조한다.
+function SeasonBars({ sea, nowMonth }) {
+  const plus6 = ((nowMonth - 1 + 6) % 12) + 1;
+  const max = Math.max(...sea.index.filter((v) => v != null), 120);
+  return (
+    <div className="tc-season">
+      {sea.index.map((v, i) => {
+        const m = i + 1, hi = v >= 100;
+        const mark = m === nowMonth ? "now" : m === plus6 ? "plus6" : "";
+        return (
+          <div key={m} className={`tc-season-col ${mark}`} title={`${m}월 · 연평균의 ${Math.round(v)}%`}>
+            <div className="tc-season-bar"><i style={{ height: `${(v / max) * 100}%`, background: hi ? "#244986" : "#aebbcf" }} /></div>
+            <small>{m}</small>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -215,6 +244,21 @@ export function TrendAnalysis({ industry, selected, goCommercial }) {
           )}
         </div>
 
+        {t.seasonality?.seasonal && (() => {
+          const sea = t.seasonality, nowM = Number(trendWeeks[trendWeeks.length - 1].slice(5, 7));
+          const plus6 = ((nowM - 1 + 6) % 12) + 1, p6 = sea.index[plus6 - 1];
+          return (
+            <div className="tc-block">
+              <div className="tc-block-h"><h4>계절 흐름</h4></div>
+              <p className="tc-lead">
+                {`${sea.peak_month}월에 가장 많이 찾고(연평균의 ${Math.round(sea.index[sea.peak_month - 1])}%) ${sea.low_month}월에 가장 적습니다. `}
+                {`지금 준비를 시작해 6개월 뒤 ${plus6}월에 연다면 연평균의 ${Math.round(p6)}% 수준, ${p6 >= 115 ? "성수기에 맞습니다" : p6 <= 85 ? "비수기와 겹칩니다" : "평년 수준입니다"}.`}
+              </p>
+              <SeasonBars sea={sea} nowMonth={nowM} />
+              <p className="tc-season-cap"><b>{nowM}월</b> 지금 · <b>{plus6}월</b> 6개월 뒤 · 가로선 100 = 연평균 ({sea.n_years}년 평균, 유행 추세 제거 후)</p>
+            </div>
+          );
+        })()}
         {t.similar?.length > 0 && t.shape && (
           <div className="tc-block">
             <div className="tc-block-h"><h4>닮은 과거 유행</h4></div>
