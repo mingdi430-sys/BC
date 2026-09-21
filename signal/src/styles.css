@@ -3047,3 +3047,5 @@ footer .brand-logo {
 .tc-region-row small { display: block; font-size: 11px; color: #7e8ea8; }
 .tc-region-row b { font-size: 17px; font-weight: 600; color: #202d43; }
 .tc-region-row b span { font-size: 12px; font-weight: 500; color: #6b7e9b; }
+.suggestions { flex-wrap: wrap; }
+.suggestions button { white-space: nowrap; }
