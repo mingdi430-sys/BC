@@ -174,7 +174,7 @@ export function ChatPanel({
   return (
     <aside className="chat-panel">
       <div className="chat-header">
-        <strong>신호등 도우미</strong>
+        <strong>MarketSignal 도우미</strong>
         {!configured && <span className="chat-badge">설정 준비중</span>}
       </div>
       <div className="chat-messages">

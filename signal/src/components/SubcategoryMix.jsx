@@ -68,7 +68,6 @@ export function SubcategoryMix({ mix, label, industry }) {
       {mix.missing > 0 && (
         <p className="chart-caption">하위 지역 {mix.missing}곳은 점포 자료가 없어 제외했습니다.</p>
       )}
->
     </>
   );
 }
