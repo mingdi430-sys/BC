@@ -84,7 +84,7 @@ export default function App() {
               region={region}
             />
           ) : (
-            <TrendAnalysis industry={industry} selected={selected} />
+            <TrendAnalysis industry={industry} selected={selected} goCommercial={() => setView("commercial")} />
           )}
           {industry && view === "commercial" ? (
             <ChatPanel

@@ -3,7 +3,7 @@ import { getTrend, trendMeta, trendWeeks, STAGE_LABEL, SIGNAL_COLOR } from "../t
 
 const ITEM = "두쫀쿠";
 const CHIPS = ["두바이 초콜릿", "디진다돈까스", "탕후루", "버터떡"];
-const CHIP_LABEL = { 디진다돈까스: "한정선" };
+const CHIP_LABEL = {};  // 칩 이름은 실제 데이터 이름 그대로 (다른 아이템 곡선에 다른 이름을 붙이지 않는다)
 const RISK = { green: "유행 리스크 낮음", amber: "유행 리스크 중간", red: "유행 리스크 높음" };
 const STAGE_TONE = { emerging: "#1E9C58", surging: "#D99A06", peak: "#D4413A", declining: "#D4413A", stable: "#5b6b84" };
 const sigOf = (p) => (p >= trendMeta.green_min ? "green" : p < trendMeta.red_max ? "red" : "amber");
@@ -328,7 +328,7 @@ export function TrendHero() {
         <HorizonCard label="6개월 뒤" p={hz["26"]} delay={0.15} reduce={reduce} />
         <HorizonCard label="12개월 뒤" p={hz["52"]} delay={0.3} reduce={reduce} />
       </div>
-      <span className="th-h-cap">오늘({data.dateAt(data.last)}) 기준 유지 확률</span>
+      <span className="th-h-cap">{data.dateAt(data.last)} 주 데이터 기준 유지 확률</span>
 
       <Chip name={CHIPS[0]} style={{ left: "-1%", top: "5px", "--d": ".7s", "--f": "0s" }} />
       <Chip name={CHIPS[1]} label={CHIP_LABEL[CHIPS[1]]} style={{ right: "2%", top: "392px", "--d": ".9s", "--f": "-2s" }} />

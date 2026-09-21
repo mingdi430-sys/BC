@@ -20,7 +20,7 @@ BASELINE_WEEKS = 8
 Z_THRESH = 3.0
 RATIO_THRESH = 3.0
 MIN_COUNT = 5
-TOP_PER_INDUSTRY = 20
+TOP_PER_INDUSTRY = 12   # 중복 제거 후에는 자리를 억지로 채우지 않는다
 
 
 def detect_bursts(weekly: pd.DataFrame, baseline_weeks: int = BASELINE_WEEKS, z_thresh: float = Z_THRESH,
@@ -51,18 +51,40 @@ def detect_bursts(weekly: pd.DataFrame, baseline_weeks: int = BASELINE_WEEKS, z_
     return pd.DataFrame(events, columns=["phrase", "industry", "burst_week", "z", "ratio", "count", "source"])
 
 
-def select_candidates(events: pd.DataFrame, top: int = TOP_PER_INDUSTRY) -> pd.DataFrame:
+MIN_SHARE = 0.10   # 관련 업종으로 인정할 최소 언급 비중
+
+
+def assign_industries(weekly: pd.DataFrame, min_share: float = MIN_SHARE) -> pd.DataFrame:
+    """명사구별 주 업종(언급량 최대)과 관련 업종 목록(언급 비중 min_share 이상).
+
+    같은 아이템이 여러 업종 쿼리에서 잡히므로(두쫀쿠는 제과점·편의점·스넥 모두), 업종을 언급량으로 정한다.
+    """
+    g = weekly.groupby(["phrase", "industry"], dropna=False)["count"].sum().reset_index()
+    g["share"] = g["count"] / g.groupby("phrase")["count"].transform("sum")
+    primary = g.sort_values("count", ascending=False).drop_duplicates("phrase").set_index("phrase")["industry"]
+    related = (g[g["share"] >= min_share].sort_values("count", ascending=False)
+               .groupby("phrase")["industry"].apply(lambda s: ",".join(s)))
+    return pd.DataFrame({"industry": primary, "industries": related}).reset_index()
+
+
+def select_candidates(events: pd.DataFrame, weekly: pd.DataFrame | None = None, top: int = TOP_PER_INDUSTRY) -> pd.DataFrame:
     """명사구·업종별 첫 급등 주와 최대 z를 요약하고 업종당 상위 top개."""
     if events.empty:
         return pd.DataFrame(columns=["phrase", "industry", "burst_start_week", "max_z", "max_ratio", "sources", "n_bursts"])
     ev = events.copy()
     # 점수 = 급등 규모(건수) × 배율, z는 보조. z만 쓰면 기준선 분산이 0에 가까운 잡음어("하트")가 상위를 차지한다.
     ev["score"] = np.log1p(ev["count"]) * np.log1p(ev["ratio"].fillna(1).clip(lower=1, upper=20)) + ev["z"].fillna(0).clip(lower=0, upper=10) / 10
-    agg = ev.groupby(["phrase", "industry"], dropna=False).agg(
+    # 업종은 이벤트가 난 쿼리가 아니라 전체 언급량으로 정한다 (명사구 하나 = 업종 하나)
+    agg = ev.groupby("phrase", dropna=False).agg(
         burst_start_week=("burst_week", "min"), max_z=("z", "max"), max_ratio=("ratio", "max"),
         score=("score", "max"), n_bursts=("burst_week", "size"),
         sources=("source", lambda s: ",".join(sorted(set(s)))),
     ).reset_index()
+    if weekly is not None and len(weekly):
+        agg = agg.merge(assign_industries(weekly), on="phrase", how="left")
+    else:
+        agg = agg.merge(ev.groupby("phrase")["industry"].first().rename("industry").reset_index(), on="phrase", how="left")
+        agg["industries"] = agg["industry"]
     agg = agg.sort_values(["industry", "score"], ascending=[True, False])
     out = agg.groupby("industry", dropna=False).head(top).reset_index(drop=True)
     return out.drop(columns=["score"])
@@ -79,7 +101,7 @@ def run(top: int = TOP_PER_INDUSTRY) -> pd.DataFrame:
                 parts.append(df[["industry", "phrase", "week", "count", "source"]])
     weekly = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["industry", "phrase", "week", "count", "source"])
     events = detect_bursts(weekly)
-    cands = select_candidates(events, top)
+    cands = select_candidates(events, weekly, top)
     cands.to_parquet(CANDIDATES_PARQUET, index=False)
     log.info("candidates.parquet 저장: 급등 이벤트 %d → 후보 %d개 (업종 %d)", len(events), len(cands),
              cands["industry"].nunique() if len(cands) else 0)
@@ -98,12 +120,13 @@ def detect_rising(weekly: pd.DataFrame, recent: int = RISE_RECENT, base: int = R
     """급등(z·×3)과 달리 몇 주에 걸쳐 서서히 오르는 명사구. 최근 recent주 평균이 직전 base주 평균의 ratio_min배 이상.
     반환: phrase, industry, recent_sum, base_mean, ratio, last_week, spark(최근 12주 건수)"""
     if weekly.empty:
-        return pd.DataFrame(columns=["phrase", "industry", "recent_sum", "base_mean", "ratio", "last_week", "spark"])
+        return pd.DataFrame(columns=["phrase", "industry", "industries", "recent_sum", "base_mean", "ratio", "last_week", "spark"])
     weekly = weekly.copy(); weekly["week"] = pd.to_datetime(weekly["week"])
     asof = asof or weekly["week"].max()
     grid = pd.date_range(asof - pd.Timedelta(weeks=recent + base - 1), asof, freq="7D")
     agg = weekly.groupby(["phrase", "week"], as_index=False)["count"].sum()
-    ind_of = weekly.groupby(["phrase", "industry"])["count"].sum().reset_index().sort_values("count", ascending=False).drop_duplicates("phrase").set_index("phrase")["industry"]
+    inds = assign_industries(weekly).set_index("phrase")
+    ind_of, related_of = inds["industry"], inds["industries"]
     rows = []
     for ph, g in agg.groupby("phrase"):
         s = g.set_index("week")["count"].reindex(grid, fill_value=0).astype(float)
@@ -112,6 +135,7 @@ def detect_rising(weekly: pd.DataFrame, recent: int = RISE_RECENT, base: int = R
             continue
         r = rec.mean() / (bas.mean() + 0.25)
         if r >= ratio_min and (rec.diff().dropna() >= 0).sum() >= recent - 2:  # 대체로 오르는 모양
-            rows.append({"phrase": ph, "industry": ind_of.get(ph), "recent_sum": int(rec.sum()), "base_mean": round(float(bas.mean()), 2),
+            rows.append({"phrase": ph, "industry": ind_of.get(ph), "industries": related_of.get(ph, ind_of.get(ph)),
+                         "recent_sum": int(rec.sum()), "base_mean": round(float(bas.mean()), 2),
                          "ratio": round(float(r), 2), "last_week": asof.strftime("%Y-%m-%d"), "spark": [int(x) for x in s.iloc[-12:]]})
     return pd.DataFrame(rows).sort_values(["ratio", "recent_sum"], ascending=False).reset_index(drop=True)
