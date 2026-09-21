@@ -3,7 +3,7 @@ import { ArrowUpRight, ArrowRight, Search } from "lucide-react";
 import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
 import {
   getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
-  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending, featuredKeywords,
+  STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending, featuredKeywords, matchesIndustry,
 } from "../trend";
 import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";

@@ -113,13 +113,31 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
     base_kws = sorted(k for k in curves[curves["source"].isin(["label", "demo", "candidate"])]["keyword"].unique() if k in allowed)
     out = {"generated": dt.date.today().isoformat(),
            "weeks": [pd.Timestamp(w).strftime("%Y-%m-%d") for w in weeks], "keywords": {}, "candidates": [], "meta": {}}
+    # 후보의 업종은 언급량 기준으로 다시 정해진 값을 쓴다 (curves 의 industry 는 수집 당시 값이라 낡음)
+    cand_ind = {}
+    if len(cands):
+        for r in cands.itertuples():
+            cand_ind[r.phrase] = (r.industry, str(getattr(r, "industries", r.industry) or r.industry))
     for kw in base_kws:
         k = build_keyword_entry(kw, curves, fc, labels, weeks, widx)
         if k is not None:
+            lab_ind = labels.get(kw, {}).get("industry")
+            if kw in cand_ind:
+                ci, cis = cand_ind[kw]
+                k["industry"] = lab_ind or ci                      # 라벨은 검증 기준이라 주 업종을 유지
+                rel = cis.split(",")
+                if k["industry"] not in rel:
+                    rel = [k["industry"]] + rel
+                k["industries"] = ",".join(rel)
+            elif lab_ind:
+                k["industry"] = k["industries"] = lab_ind
+            else:
+                k["industries"] = k["industry"]
             out["keywords"][kw] = k
     if len(cands):
         for r in cands.sort_values(["industry", "max_z"], ascending=[True, False]).itertuples():
             out["candidates"].append({"phrase": r.phrase, "industry": r.industry,
+                                      "industries": str(getattr(r, "industries", r.industry) or r.industry),
                                       "burst_week": pd.Timestamp(r.burst_start_week).strftime("%Y-%m-%d"),
                                       "z": None if pd.isna(r.max_z) else round(float(r.max_z), 1),
                                       "has_curve": r.phrase in out["keywords"]})
@@ -132,7 +150,8 @@ def build(out_path: Path = DEFAULT_OUT) -> dict:
         failed = set(json.loads(failed_path.read_text())) if failed_path.exists() else set()
         r = r[~r["phrase"].isin(failed)]   # 네이버 검색 이력이 없어 곡선을 못 만드는 말은 제외
         for row in r.head(12).itertuples():
-            out["trending"].append({"phrase": row.phrase, "industry": row.industry, "recent_sum": int(row.recent_sum), "ratio": float(row.ratio),
+            out["trending"].append({"phrase": row.phrase, "industry": row.industry,
+                                    "industries": str(getattr(row, "industries", row.industry) or row.industry), "recent_sum": int(row.recent_sum), "ratio": float(row.ratio),
                                     "spark": list(row.spark), "last_week": row.last_week, "has_curve": row.phrase in out["keywords"],
                                     "signal": out["keywords"].get(row.phrase, {}).get("signal"), "stage": out["keywords"].get(row.phrase, {}).get("current", {}).get("stage")})
     meta = {"model": "TimesFM 2.5 (200M, zero-shot)", "horizon_weeks": 26, "keep_frac": 0.7,

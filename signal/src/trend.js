@@ -60,14 +60,19 @@ function normalizeKey(k) {
   return hit || clean;
 }
 
-// 업종(카드 데이터 원문, 공백 포함 가능)에 해당하는 키워드·후보
-export function keywordsForIndustry(industry) {
+// 업종 매칭: 주 업종뿐 아니라 관련 업종 목록(언급 비중 10% 이상)까지 본다.
+// 두쫀쿠처럼 제과점·편의점·스넥에 걸친 아이템이 한 업종에서만 보이는 문제를 막는다.
+export const matchesIndustry = (entry, industry) => {
   const ind = normalizeName(industry);
-  return trendKeywords.filter((k) => normalizeName(source.keywords[k].industry) === ind);
+  return String(entry?.industries || entry?.industry || "")
+    .split(",")
+    .some((x) => normalizeName(x) === ind);
+};
+export function keywordsForIndustry(industry) {
+  return trendKeywords.filter((k) => matchesIndustry(source.keywords[k], industry));
 }
 export function candidatesForIndustry(industry, limit = 12) {
-  const ind = normalizeName(industry);
-  return candidates.filter((c) => normalizeName(c.industry) === ind).slice(0, limit);
+  return candidates.filter((c) => matchesIndustry(c, industry)).slice(0, limit);
 }
 
 // 최근 n주 평균 (null 제외)
