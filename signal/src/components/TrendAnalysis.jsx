@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ArrowUpRight, ArrowRight, Search } from "lucide-react";
-import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels } from "../data";
+import { getRecords, resolveRegion, industryLabel, genderAgeFor, AGE_GROUPS, GENDER_GROUPS, ageLabels, money, signed, genderLabels } from "../data";
 import {
   getTrend, trendKeywords, trendWeeks, keywordsForIndustry, candidatesForIndustry, trendMeta, generatedAt, registerTrend,
   STAGE_LABEL, SIGNAL_COLOR, AGE_LABEL, recentMean, trending, featuredKeywords,
@@ -70,12 +70,16 @@ function AgeBars({ title, rows }) {
   );
 }
 
-export function TrendAnalysis({ industry, selected }) {
+export function TrendAnalysis({ industry, selected, goCommercial }) {
   const initial = new URLSearchParams(window.location.search).get("item") || "";
   const [query, setQuery] = useState(initial), [keyword, setKeyword] = useState(getTrend(initial) ? initial : ""), [error, setError] = useState("");
   const [fullRange, setFullRange] = useState(false), [showAge, setShowAge] = useState(false);
   const atParam = new URLSearchParams(window.location.search).get("at");
   const [fetching, setFetching] = useState("");
+  const [allTrending, setAllTrending] = useState(false);
+  const indName = industry ? industryLabel(shortIndustry(industry)) : "";
+  const trendingByInd = indName ? trending.filter((x) => industryLabel(x.industry || "") === indName) : [];
+  const trendingShown = !allTrending && trendingByInd.length >= 2 ? trendingByInd : trending;
   const API_BASE = import.meta.env.VITE_CHAT_API || "http://localhost:8000";
   const [tm, setTm] = useState(() => {
     const t0 = getTrend(initial); if (!t0 || !atParam || !t0.history) return null;
@@ -157,6 +161,24 @@ export function TrendAnalysis({ industry, selected }) {
           </div>
         </div>
 
+        {region?.hasData && industry && (() => {
+          const ga = genderAgeFor(region, industry);
+          let best = null;
+          for (const g of GENDER_GROUPS) for (const a of AGE_GROUPS) { const v = ga[g][a]; if (!best || v > best.v) best = { g, a, v }; }
+          return (
+            <div className="tc-region">
+              <div className="tc-region-h"><h4>{region.province} {region.name} {indName} 상권</h4><button className="tc-link" onClick={goCommercial}>상권 분석에서 자세히</button></div>
+              <div className="tc-region-row">
+                <div><small>6개월 결제</small><b>{money(region.amount)}</b></div>
+                <div><small>기간 증감</small><b>{signed(region.periodGrowth)}</b></div>
+                {region.nationalRank && <div><small>전국 순위</small><b>{region.nationalRank}위<span> / {region.nationalTotal}</span></b></div>}
+                {best && best.v > 0 && <div><small>결제 최다</small><b>{ageLabels[best.a]} {genderLabels[best.g]}</b></div>}
+                {topCard && <div><small>검색 최다</small><b>{topSearch.label}<span>{topCard.k === topSearch.k ? " · 결제 세대와 같음" : " · 결제 세대와 다름"}</span></b></div>}
+              </div>
+              {region.lowSample && <p className="tc-lead">이 지역·업종은 결제 표본이 적어 참고만 하세요</p>}
+            </div>
+          );
+        })()}
         <div className="tc-block">
           <div className="tc-block-h">
             <h4>검색 흐름과 6개월 예측</h4>
@@ -233,9 +255,9 @@ export function TrendAnalysis({ industry, selected }) {
       </div>
       {!t && trending.length > 0 && (
         <div className="tc-trending">
-          <div className="tc-block-h"><h4>지금 YouTube에서 뜨는 것</h4></div>
+          <div className="tc-block-h"><h4>지금 YouTube에서 뜨는 것{indName && trendingShown !== trending ? ` · ${indName}` : ""}</h4>{indName && trendingShown !== trending && <button className="tc-link" onClick={() => setAllTrending(true)}>전체 보기</button>}</div>
           <div className="tc-trend-grid">
-            {trending.map((x) => (
+            {trendingShown.map((x) => (
               <button key={x.phrase} className="tc-trend-card" onClick={() => search(x.phrase)} title="클릭하면 검색 곡선으로 판정">
                 <div className="tc-trend-top"><b>{x.phrase}</b><small>{x.industry}</small></div>
                 <div className="tc-spark">{x.spark.map((v, i) => <i key={i} style={{ height: `${Math.max(8, (v / Math.max(...x.spark, 1)) * 100)}%` }} />)}</div>

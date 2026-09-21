@@ -3036,3 +3036,14 @@ footer .brand-logo {
 .demo-table-months th:first-child {
   width: 22%;
 }
+
+/* 상권 ↔ 트렌드 연결 (실험) */
+.tc-context { display: flex; align-items: center; gap: 14px; margin: -14px 0 18px; font-size: 13px; color: #3c4a60; }
+.tc-context > span { background: #eef2f8; border-radius: 999px; padding: 5px 12px; font-weight: 600; color: #285bb0; }
+.tc-region { margin-top: 20px; border: 1px solid #e6eaf1; border-radius: 12px; padding: 16px 20px; background: #fff; }
+.tc-region-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+.tc-region-h h4 { margin: 0; font-size: 15px; }
+.tc-region-row { display: flex; flex-wrap: wrap; gap: 8px 32px; }
+.tc-region-row small { display: block; font-size: 11px; color: #7e8ea8; }
+.tc-region-row b { font-size: 17px; font-weight: 600; color: #202d43; }
+.tc-region-row b span { font-size: 12px; font-weight: 500; color: #6b7e9b; }

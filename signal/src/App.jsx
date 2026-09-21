@@ -5,8 +5,9 @@ import { TrendAnalysis } from "./components/TrendAnalysis";
 import { ChatPanel } from "./components/ChatPanel";
 import { getRecords, resolveRegion } from "./data";
 export default function App() {
-  const [industry, setIndustry] = useState(""),
-    [selected, setSelected] = useState(""),
+  const qs = new URLSearchParams(window.location.search);
+  const [industry, setIndustry] = useState(qs.get("industry") || ""),
+    [selected, setSelected] = useState(qs.get("region") || ""),
     [view, setView] = useState(window.location.hash === "#trend" ? "trend" : "commercial"),
     [province, setProvinceState] = useState(""),
     [metric, setMetric] = useState("amount");
@@ -84,7 +85,7 @@ export default function App() {
               region={region}
             />
           ) : (
-            <TrendAnalysis industry={industry} selected={selected} />
+            <TrendAnalysis industry={industry} selected={selected} goCommercial={() => setView("commercial")} />
           )}
           {industry && view === "commercial" ? (
             <ChatPanel
