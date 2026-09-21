@@ -70,10 +70,10 @@ function AgeBars({ title, rows }) {
   );
 }
 
-export function TrendAnalysis({ industry, selected }) {
+export function TrendAnalysis({ industry, selected, goCommercial }) {
   const initial = new URLSearchParams(window.location.search).get("item") || "";
   const [query, setQuery] = useState(initial), [keyword, setKeyword] = useState(getTrend(initial) ? initial : ""), [error, setError] = useState("");
-  const [fullRange, setFullRange] = useState(false), [showAge, setShowAge] = useState(false);
+  const [fullRange, setFullRange] = useState(false);
   const atParam = new URLSearchParams(window.location.search).get("at");
   const [fetching, setFetching] = useState("");
   const API_BASE = import.meta.env.VITE_CHAT_API || "http://localhost:8000";
@@ -181,19 +181,20 @@ export function TrendAnalysis({ industry, selected }) {
         </div>
 
         <div className="tc-block">
-            <div className="tc-block-h"><h4>누가 찾는가</h4></div>
+            <div className="tc-block-h">
+              <h4>누가 찾는가</h4>
+              {cardAge ? <span className="tc-scope">{region.province} {region.name} · {industryLabel(shortIndustry(industry))} 결제와 비교</span>
+                       : <button className="tc-link" onClick={goCommercial}>상권 분석에서 지역·업종을 고르면 결제 세대와 비교됩니다</button>}
+            </div>
             <p className="tc-lead">
               {`${keyword}을(를) 가장 많이 검색하는 세대는 ${topSearch.label}`}
               {topCard ? `, ${region.name} ${industryLabel(shortIndustry(industry))} 결제는 ${topCard.label}이 가장 많음` : ""}
               {topCard ? (topCard.k === topSearch.k ? " → 찾는 세대와 사는 세대가 같습니다" : " → 찾는 세대와 사는 세대가 다릅니다") : ""}
             </p>
-            <button className="tc-link" onClick={() => setShowAge(!showAge)}>{showAge ? "접기" : "연령별 비중 보기"}</button>
-            {showAge && (
-              <div className="tc-two">
-                <AgeBars title={`'${keyword}' 검색 비중 (최근 26주)`} rows={searchAge} />
-                {cardAge && <AgeBars title={`${region.name} ${industryLabel(shortIndustry(industry))} 결제 비중`} rows={cardAge} />}
-              </div>
-            )}
+            <div className="tc-two">
+              <AgeBars title={`'${keyword}' 검색 비중 (최근 26주)`} rows={searchAge} />
+              {cardAge && <AgeBars title={`${region.name} ${industryLabel(shortIndustry(industry))} 결제 비중`} rows={cardAge} />}
+            </div>
           </div>
         <details className="tc-details">
           <summary>어떻게 계산했나요</summary>
