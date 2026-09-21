@@ -9,6 +9,9 @@ import { SectionHeading, shortIndustry } from "./Shared";
 import { Curve } from "./TrendCurve";
 
 const STAGE_COLOR = { emerging: "#1E9C58", surging: "#D99A06", peak: "#D4413A", declining: "#D4413A", stable: "#dfe4ec" };
+const GENDER_COLOR = { m: "#2554C7", f: "#E8398F" };            // 상권 탭과 같은 성별 색
+const SIMILAR_COLORS = ["#0E9594", "#7B6BD6", "#E08A3C"];       // 닮은 사례 3개 (대상 남색과 구분)
+const AGE_ON = "#244986", AGE_OFF = "#a9bcd4";
 
 function argmax(arr) { let bi = -1, bv = -Infinity; (arr || []).forEach((v, i) => { if (v != null && v > bv) { bv = v; bi = i; } }); return bi; }
 
@@ -75,7 +78,7 @@ function PeakOverlay({ shape, similar, keyword }) {
     return d;
   };
   const nowI = pre + Math.min(post, shape.weeks_since_peak);
-  const COLORS = ["#8fa3bf", "#a9bcd4", "#c2d0e2"];
+  const COLORS = SIMILAR_COLORS;
   return (
     <svg className="tc" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="정점 기준 곡선 비교">
       {[0, 50, 100].map((v) => (
@@ -88,7 +91,7 @@ function PeakOverlay({ shape, similar, keyword }) {
       <text x={x(pre)} y={H - m.b + 15} textAnchor="middle" className="axis">정점</text>
       <text x={x(0)} y={H - m.b + 15} className="axis">6개월 전</text>
       <text x={x(n - 1)} y={H - m.b + 15} textAnchor="end" className="axis">6개월 후</text>
-      {similar.map((o, k) => <path key={o.keyword} d={path(o.values)} fill="none" stroke={COLORS[k] || "#c2d0e2"} strokeWidth="1.8" />)}
+      {similar.map((o, k) => <path key={o.keyword} d={path(o.values)} fill="none" stroke={COLORS[k] || "#c2d0e2"} strokeWidth="1.8" opacity=".85" />)}
       <path d={path(shape.values)} fill="none" stroke="#244986" strokeWidth="2.6" />
       {shape.weeks_since_peak >= 0 && shape.weeks_since_peak <= post && shape.values[nowI] != null && (
         <g><circle cx={x(nowI)} cy={y(shape.values[nowI])} r="4.5" fill="#244986" stroke="#fff" strokeWidth="2" />
@@ -105,11 +108,11 @@ function SeasonBars({ sea, nowMonth }) {
   return (
     <div className="tc-season">
       {sea.index.map((v, i) => {
-        const m = i + 1, hi = v >= 100;
+        const m = i + 1, hi = v >= 100, top = m === sea.peak_month;
         const mark = m === nowMonth ? "now" : m === plus6 ? "plus6" : "";
         return (
           <div key={m} className={`tc-season-col ${mark}`} title={`${m}월 · 연평균의 ${Math.round(v)}%`}>
-            <div className="tc-season-bar"><i style={{ height: `${(v / max) * 100}%`, background: hi ? "#244986" : "#aebbcf" }} /></div>
+            <div className="tc-season-bar"><i style={{ height: `${(v / max) * 100}%`, background: top ? "#1b3a6b" : hi ? "#3f6ea8" : "#c2cddd" }} /></div>
             <small>{m}</small>
           </div>
         );
@@ -118,7 +121,7 @@ function SeasonBars({ sea, nowMonth }) {
   );
 }
 
-function AgeBars({ title, rows }) {
+function AgeBars({ title, rows, color = AGE_ON }) {
   const max = Math.max(...rows.map((r) => r.v), 1e-9);
   return (
     <div className="tc-bars">
@@ -126,10 +129,25 @@ function AgeBars({ title, rows }) {
       {rows.map((r) => (
         <div key={r.k} className="tc-bar-row">
           <span>{r.label}</span>
-          <i><b style={{ width: `${(r.v / max) * 100}%` }} /></i>
+          <i><b style={{ width: `${(r.v / max) * 100}%`, background: r.v === max ? color : AGE_OFF }} /></i>
           <small>{r.text}</small>
         </div>
       ))}
+    </div>
+  );
+}
+
+// 남 / 여 비중 한 줄 (검색과 결제를 같은 줄에)
+function GenderSplit({ label, m, f }) {
+  const tot = m + f || 1, pm = (m / tot) * 100;
+  return (
+    <div className="tc-gender">
+      <span className="tc-gender-l">{label}</span>
+      <div className="tc-gender-bar">
+        <i style={{ width: `${pm}%`, background: GENDER_COLOR.m }} />
+        <i style={{ width: `${100 - pm}%`, background: GENDER_COLOR.f }} />
+      </div>
+      <small>남 {Math.round(pm)}% · 여 {Math.round(100 - pm)}%</small>
     </div>
   );
 }
@@ -190,11 +208,12 @@ export function TrendAnalysis({ industry, selected, goCommercial }) {
     const searchAge = ["2", "3", "4", "5", "6"].map((a) => ({ k: a, label: AGE_LABEL[a], v: recentMean(t.age[a]) }));
     const sTot = searchAge.reduce((s, r) => s + r.v, 0) || 1;
     searchAge.forEach((r) => { r.text = `${Math.round((r.v / sTot) * 100)}%`; });
-    let cardAge = null;
+    let cardAge = null, cardGender = { m: 0, f: 0 };
     if (region?.hasData && industry) {
       const ga = genderAgeFor(region, industry);
       const tot = AGE_GROUPS.reduce((s, a) => s + GENDER_GROUPS.reduce((s2, g) => s2 + ga[g][a], 0), 0) || 1;
       cardAge = AGE_GROUPS.map((a) => { const val = GENDER_GROUPS.reduce((s, g) => s + ga[g][a], 0); return { k: a, label: ageLabels[a], v: val, text: `${Math.round((val / tot) * 100)}%` }; });
+      cardGender = { m: AGE_GROUPS.reduce((s, a) => s + ga["1"][a], 0), f: AGE_GROUPS.reduce((s, a) => s + ga["2"][a], 0) };
     }
     const topSearch = searchAge.slice().sort((a, b) => b.v - a.v)[0];
     const topCard = cardAge ? cardAge.slice().sort((a, b) => b.v - a.v)[0] : null;
@@ -270,7 +289,7 @@ export function TrendAnalysis({ industry, selected, goCommercial }) {
             <div className="tc-legend">
               <span><i style={{ background: "#244986" }} />{keyword}</span>
               {t.similar.map((o, k) => (
-                <span key={o.keyword}><i style={{ background: ["#8fa3bf", "#a9bcd4", "#c2d0e2"][k] }} />{o.keyword}<small>{o.peak_week.slice(0, 7)} 정점 · 6개월 뒤 {Math.round(o.after6m * 100)}%</small></span>
+                <span key={o.keyword}><i style={{ background: SIMILAR_COLORS[k] }} />{o.keyword}<small>{o.peak_week.slice(0, 7)} 정점 · 6개월 뒤 {Math.round(o.after6m * 100)}%</small></span>
               ))}
             </div>
           </div>
@@ -282,13 +301,21 @@ export function TrendAnalysis({ industry, selected, goCommercial }) {
                        : <button className="tc-link" onClick={goCommercial}>상권 분석에서 지역·업종을 고르면 결제 세대와 비교됩니다</button>}
             </div>
             <p className="tc-lead">
-              {`${keyword}을(를) 가장 많이 검색하는 세대는 ${topSearch.label}`}
+              {`${keyword}을(를) 가장 많이 검색하는 세대는 ${topSearch.label}${(() => { const m = recentMean(t.gender.m), f = recentMean(t.gender.f); const r = m / (m + f || 1); return r >= 0.6 ? ", 남성이 더 많이 찾습니다" : r <= 0.4 ? ", 여성이 더 많이 찾습니다" : ""; })()}`}
               {topCard ? `, ${region.name} ${industryLabel(shortIndustry(industry))} 결제는 ${topCard.label}이 가장 많음` : ""}
               {topCard ? (topCard.k === topSearch.k ? " → 찾는 세대와 사는 세대가 같습니다" : " → 찾는 세대와 사는 세대가 다릅니다") : ""}
             </p>
             <div className="tc-two">
-              <AgeBars title={`'${keyword}' 검색 비중 (최근 26주)`} rows={searchAge} />
-              {cardAge && <AgeBars title={`${region.name} ${industryLabel(shortIndustry(industry))} 결제 비중`} rows={cardAge} />}
+              <div>
+                <AgeBars title={`'${keyword}' 검색 비중 (최근 26주)`} rows={searchAge} />
+                <GenderSplit label="검색" m={recentMean(t.gender.m)} f={recentMean(t.gender.f)} />
+              </div>
+              {cardAge && (
+                <div>
+                  <AgeBars title={`${region.name} ${industryLabel(shortIndustry(industry))} 결제 비중`} rows={cardAge} />
+                  <GenderSplit label="결제" m={cardGender.m} f={cardGender.f} />
+                </div>
+              )}
             </div>
           </div>
         <details className="tc-details">
